@@ -1,0 +1,71 @@
+# Jarvis Configuration
+# Copy this file to config.local.yaml and fill in your API keys.
+# config.local.yaml is gitignored — never commit real keys.
+
+jarvis:
+  name: "Jarvis"
+  version: "1.0.0"
+  user_name: "Boss"
+  # Location settings used across weather, traffic, flights
+  location:
+    city: "Lahore"
+    country: "PK"
+    latitude: 31.5497
+    longitude: 74.3436
+    timezone: "Asia/Karachi"
+    iata_airport: "LHE"   # nearest major airport
+
+claude:
+  model: "claude-opus-4-8"
+  thinking: true
+  streaming: true
+
+# ── Agent API keys ──────────────────────────────────────────
+weather:
+  enabled: true
+  api_key: "YOUR_OPENWEATHERMAP_API_KEY"
+  # Free tier: https://openweathermap.org/api
+  units: "metric"
+
+news:
+  enabled: true
+  api_key: "YOUR_NEWSAPI_KEY"
+  # Free tier: https://newsapi.org/
+  country: "pk"
+  page_size: 10
+
+email:
+  enabled: true
+  provider: "gmail"   # gmail | imap
+  # For Gmail: create an App Password at myaccount.google.com/apppasswords
+  address: "your@gmail.com"
+  password: "YOUR_APP_PASSWORD"
+  imap_host: "imap.gmail.com"
+  imap_port: 993
+  max_emails: 10
+
+smart_home:
+  enabled: true
+  provider: "home_assistant"  # home_assistant | mqtt
+  # Home Assistant: Settings → Profile → Long-lived access tokens
+  ha_url: "http://homeassistant.local:8123"
+  ha_token: "YOUR_HOME_ASSISTANT_TOKEN"
+
+flights:
+  enabled: true
+  api_key: "YOUR_AVIATIONSTACK_API_KEY"
+  # Free tier: https://aviationstack.com/
+  radius_km: 150
+
+traffic:
+  enabled: true
+  provider: "tomtom"   # tomtom | googlemaps
+  api_key: "YOUR_TOMTOM_API_KEY"
+  # Free tier: https://developer.tomtom.com/
+  radius_km: 30
+
+# ── Plugin directory ────────────────────────────────────────
+plugins:
+  enabled: true
+  directory: "jarvis/plugins"
+  autoload: true

@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S — AI Command Center</title>
+<style>
+:root {
+  --c: #00e5ff;
+  --c2: #0077aa;
+  --bg: #000810;
+  --pb: rgba(0,229,255,0.06);
+  --pb2: rgba(0,229,255,0.12);
+  --border: rgba(0,229,255,0.35);
+  --glow: 0 0 12px rgba(0,229,255,0.5);
+  --glow2: 0 0 25px rgba(0,229,255,0.3);
+  --dim: rgba(0,229,255,0.45);
+  --red: #ff3340;
+  --green: #00ff88;
+  --yellow: #ffcc00;
+  --white: #e0f7ff;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--c);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ── Background grid ─────────────────────────────── */
+.grid-bg {
+  position: fixed; inset: 0; z-index: 0;
+  background-image:
+    linear-gradient(rgba(0,229,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* Moving scan line */
+.scanline {
+  position: fixed; left:0; right:0; height:2px; z-index:1; pointer-events:none;
+  background: linear-gradient(90deg, transparent 0%, rgba(0,229,255,0.25) 50%, transparent 100%);
+  animation: scan 5s linear infinite;
+}
+@keyframes scan { 0%{top:0} 100%{top:100vh} }
+
+/* CRT noise overlay */
+body::after {
+  content:''; position:fixed; inset:0; z-index:999; pointer-events:none;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 4px);
+}
+
+/* ── Layout shell ────────────────────────────────── */
+.shell {
+  position: relative; z-index:2;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  gap: 5px;
+}
+
+/* ── Top bar ─────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  background: var(--pb);
+  box-shadow: var(--glow);
+  flex-shrink: 0;
+}
+
+.logo {
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 10px;
+  text-shadow: var(--glow);
+  color: var(--c);
+}
+
+.top-meta {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  font-size: 10px;
+  letter-spacing: 2px;
+}
+
+.dot-live {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse-dot 2s ease-in-out infinite;
+  margin-right: 5px;
+}
+@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
+
+.clock {
+  font-size: 17px;
+  letter-spacing: 4px;
+  text-shadow: var(--glow);
+}
+
+/* ── Main grid ───────────────────────────────────── */
+.main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 5px;
+  min-height: 0;
+}
+
+/* Center panel spans 2 rows */
+.center-col {
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* ── Panel ────────────────────────────────────────── */
+.panel {
+  border: 1px solid var(--border);
+  background: var(--pb);
+  box-shadow: var(--glow), inset 0 0 30px rgba(0,229,255,0.015);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+}
+
+/* Corner accents */
+.panel::before, .panel::after {
+  content:'';
+  position: absolute;
+  width:14px; height:14px;
+  border-color: var(--c);
+  border-style: solid;
+}
+.panel::before { top:4px; left:4px; border-width:2px 0 0 2px; }
+.panel::after  { bottom:4px; right:4px; border-width:0 2px 2px 0; }
+
+.ph {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(0,229,255,0.15);
+  flex-shrink: 0;
+}
+
+.ptitle {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--c);
+  text-shadow: var(--glow);
+  font-weight: bold;
+}
+
+.pbadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rbtn {
+  background: none;
+  border: 1px solid rgba(0,229,255,0.25);
+  color: var(--dim);
+  cursor: pointer;
+  padding: 1px 7px;
+  font-family: monospace;
+  font-size: 10px;
+  transition: all .2s;
+}
+.rbtn:hover { border-color:var(--c); color:var(--c); box-shadow:var(--glow); }
+
+.pcontent {
+  flex:1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.drow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(0,229,255,0.05);
+}
+.dlabel { color:var(--dim); font-size:9px; text-transform:uppercase; letter-spacing:1px; }
+.dval   { color:var(--white); font-size:10px; font-weight:bold; }
+.dval.hot   { color:#ff7755; }
+.dval.ok    { color:var(--green); }
+.dval.warn  { color:var(--yellow); }
+.dval.error { color:var(--red); }
+
+.note { color:var(--dim); font-size:9px; font-style:italic; margin-bottom:2px; }
+.loading { color:var(--dim); font-size:9px; letter-spacing:2px; animation:blink 1s step-end infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ── Centre panel — orb + chat ───────────────────── */
+.core-panel {
+  flex:1;
+  min-height: 0;
+}
+
+.orb-area {
+  flex:1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 0;
+  padding: 10px 0;
+}
+
+.orb-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 220px; height: 220px;
+}
+
+.ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(0,229,255,0.25);
+  animation: spin linear infinite;
+}
+.r1 { width:155px; height:155px; animation-duration:10s; }
+.r2 { width:185px; height:185px; animation-duration:18s; animation-direction:reverse; border-style:dashed; opacity:.6; }
+.r3 { width:215px; height:215px; animation-duration:30s; opacity:.35; }
+
+.r1::after {
+  content:''; position:absolute; top:-4px; left:50%;
+  width:8px; height:8px; border-radius:50%;
+  background:var(--c); box-shadow:var(--glow);
+  transform:translateX(-50%);
+}
+
+@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+
+.orb {
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #00aaff 0%, #003388 45%, #000820 100%);
+  box-shadow: 0 0 35px rgba(0,180,255,.6), 0 0 70px rgba(0,80,220,.35), inset 0 0 25px rgba(0,200,255,.12);
+  position: relative;
+  animation: orb-pulse 3.5s ease-in-out infinite;
+  cursor: pointer;
+  transition: transform .2s;
+  z-index:1;
+}
+.orb:hover { transform:scale(1.05); }
+.orb::before {
+  content:'';
+  position:absolute; top:18%; left:22%;
+  width:22%; height:14%;
+  background:rgba(255,255,255,.28);
+  border-radius:50%;
+  transform:rotate(-30deg);
+  filter:blur(2px);
+}
+
+@keyframes orb-pulse {
+  0%,100% { box-shadow:0 0 35px rgba(0,180,255,.6),0 0 70px rgba(0,80,220,.35),inset 0 0 25px rgba(0,200,255,.12); }
+  50%      { box-shadow:0 0 55px rgba(0,200,255,.85),0 0 100px rgba(0,100,255,.5),inset 0 0 40px rgba(0,200,255,.22); }
+}
+
+.orb-label {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--dim);
+  margin-top: 8px;
+  text-align: center;
+}
+
+.agent-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 6px;
+}
+.pill {
+  font-size: 8px;
+  letter-spacing: 1px;
+  border: 1px solid rgba(0,229,255,.3);
+  padding: 2px 7px;
+  color: var(--dim);
+  background: rgba(0,229,255,.04);
+}
+.pill.on { border-color:var(--green); color:var(--green); box-shadow:0 0 5px rgba(0,255,136,.3); }
+
+/* ── Chat panel ──────────────────────────────────── */
+.chat-panel { flex-shrink:0; }
+
+.msgs {
+  height: 90px;
+  overflow-y: auto;
+  margin-bottom: 6px;
+  padding: 2px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c2) transparent;
+}
+.msgs::-webkit-scrollbar { width:2px; }
+.msgs::-webkit-scrollbar-thumb { background:var(--c2); }
+
+.msg { margin-bottom:3px; font-size:10px; line-height:1.5; }
+.msg .who { font-weight:bold; }
+.msg.user .who { color:#5599bb; }
+.msg.bot  .who { color:var(--c); }
+.msg.user span.txt { color:#99ccdd; }
+.msg.bot  span.txt { color:var(--white); }
+
+.chat-row {
+  display: flex;
+  gap: 5px;
+}
+
+.cinput {
+  flex:1;
+  background: rgba(0,229,255,.04);
+  border: 1px solid rgba(0,229,255,.25);
+  color: var(--white);
+  padding: 5px 8px;
+  font-family: monospace;
+  font-size: 10px;
+  outline: none;
+}
+.cinput:focus { border-color:var(--c); box-shadow:var(--glow); }
+.cinput::placeholder { color:var(--dim); }
+
+.sbtn {
+  background: rgba(0,229,255,.1);
+  border: 1px solid rgba(0,229,255,.35);
+  color: var(--c);
+  padding: 5px 12px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  transition: all .2s;
+}
+.sbtn:hover { background:rgba(0,229,255,.2); box-shadow:var(--glow); }
+
+.vbtn {
+  background: none;
+  border: 1px solid rgba(0,229,255,.25);
+  color: var(--dim);
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all .2s;
+}
+.vbtn.on { color:var(--green); border-color:var(--green); box-shadow:0 0 7px rgba(0,255,136,.4); }
+
+/* ── Bottom strip ────────────────────────────────── */
+.bottom {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.2fr;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.strip {
+  border: 1px solid var(--border);
+  background: var(--pb);
+  box-shadow: var(--glow);
+  padding: 5px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: relative;
+}
+.strip::before, .strip::after {
+  content:'';
+  position: absolute;
+  width:10px; height:10px;
+  border-color: var(--c); border-style:solid;
+}
+.strip::before { top:3px; left:3px; border-width:1px 0 0 1px; }
+.strip::after  { bottom:3px; right:3px; border-width:0 1px 1px 0; }
+
+.slabel { font-size:8px; letter-spacing:2px; color:var(--dim); }
+.sval   { font-size:10px; color:var(--white); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+
+/* Status indicators */
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.si {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+.sid {
+  width:6px; height:6px; border-radius:50%;
+}
+.sid.ok    { background:var(--green); box-shadow:0 0 4px var(--green); }
+.sid.warn  { background:var(--yellow); box-shadow:0 0 4px var(--yellow); }
+.sid.err   { background:var(--red); box-shadow:0 0 4px var(--red); }
+.sid.idle  { background:var(--dim); }
+
+/* ── Thinking state ──────────────────────────────── */
+.thinking #jarvis-orb { animation-duration:.6s !important; }
+.thinking-ind { font-size:8px; letter-spacing:2px; color:var(--dim); }
+.thinking .thinking-ind { color:var(--c); animation:blink .5s step-end infinite; }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="scanline"></div>
+
+<div class="shell">
+
+  <!-- ═══ TOP BAR ═══════════════════════════════ -->
+  <div class="topbar">
+    <div class="logo">J.A.R.V.I.S</div>
+
+    <div class="top-meta">
+      <span><span class="dot-live"></span><span id="loc-display">MOMBASA, KE</span></span>
+      <span id="weather-top" style="color:var(--white)"></span>
+      <span style="color:var(--dim)">MULTI-AGENT AI · v1.0</span>
+      <span id="agent-count" style="color:var(--dim)">6 AGENTS</span>
+    </div>
+
+    <div class="clock" id="clock">00:00:00</div>
+  </div>
+
+  <!-- ═══ MAIN GRID ══════════════════════════════ -->
+  <div class="main">
+
+    <!-- LEFT COL: Weather / Smart Home -->
+    <div style="display:flex;flex-direction:column;gap:5px">
+
+      <div class="panel" style="flex:1">
+        <div class="ph">
+          <span class="ptitle">◈ WEATHER</span>
+          <div class="pbadge">
+            <span style="font-size:8px;color:var(--green);letter-spacing:1px;"><span class="dot-live" style="width:5px;height:5px"></span>LIVE</span>
+            <button class="rbtn" onclick="fetchWeather()">⟳</button>
+          </div>
+        </div>
+        <div class="pcontent" id="weather-content"><div class="loading">FETCHING DATA...</div></div>
+      </div>
+
+      <div class="panel" style="flex:1">
+        <div class="ph">
+          <span class="ptitle">⌂ SMART HOME</span>
+          <div class="pbadge">
+            <span style="font-size:8px;color:var(--green);letter-spacing:1px;"><span class="dot-live" style="width:5px;height:5px"></span>LIVE</span>
+            <button class="rbtn" onclick="fetchHome()">⟳</button>
+          </div>
+        </div>
+        <div class="pcontent" id="home-content"><div class="loading">CONNECTING...</div></div>
+      </div>
+
+    </div>
+
+    <!-- CENTRE COL: Orb + Chat -->
+    <div class="center-col">
+
+      <div class="panel core-panel" id="core-wrap">
+        <div class="ph">
+          <span class="ptitle" style="font-size:12px;letter-spacing:6px;">JARVIS CORE</span>
+          <span class="thinking-ind" id="thinking-ind">STANDBY</span>
+        </div>
+
+        <div class="orb-area" id="orb-area">
+          <div class="orb-wrap">
+            <div class="ring r3"></div>
+            <div class="ring r2"></div>
+            <div class="ring r1"></div>
+            <div class="orb" id="jarvis-orb" onclick="focusChat()"></div>
+          </div>
+          <div class="orb-label">ALL SYSTEMS NOMINAL</div>
+          <div class="agent-pills" id="agent-pills"></div>
+        </div>
+      </div>
+
+      <div class="panel chat-panel">
+        <div class="ph">
+          <span class="ptitle">◉ COMMAND INPUT</span>
+          <button class="vbtn on" id="vbtn" onclick="toggleVoice()" title="Voice">🔊</button>
+        </div>
+        <div class="msgs" id="msgs">
+          <div class="msg bot"><span class="who">JARVIS »</span> <span class="txt">Good day. All agents are online and ready. How can I assist you?</span></div>
+        </div>
+        <div class="chat-row">
+          <input class="cinput" id="cinput" type="text" placeholder="Speak your command..." autocomplete="off"
+                 onkeydown="if(event.key==='Enter')sendMsg()">
+          <button class="sbtn" onclick="sendMsg()">SEND</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COL: Flights / Traffic -->
+    <div style="display:flex;flex-direction:column;gap:5px">
+
+      <div class="panel" style="flex:1">
+        <div class="ph">
+          <span class="ptitle">✈ AIRSPACE</span>
+          <div class="pbadge">
+            <span style="font-size:8px;color:var(--green);letter-spacing:1px;"><span class="dot-live" style="width:5px;height:5px"></span>LIVE</span>
+            <button class="rbtn" onclick="fetchFlights()">⟳</button>
+          </div>
+        </div>
+        <div class="pcontent" id="flights-content"><div class="loading">SCANNING AIRSPACE...</div></div>
+      </div>
+
+      <div class="panel" style="flex:1">
+        <div class="ph">
+          <span class="ptitle">⊕ TRAFFIC</span>
+          <div class="pbadge">
+            <span style="font-size:8px;color:var(--green);letter-spacing:1px;"><span class="dot-live" style="width:5px;height:5px"></span>LIVE</span>
+            <button class="rbtn" onclick="fetchTraffic()">⟳</button>
+          </div>
+        </div>
+        <div class="pcontent" id="traffic-content"><div class="loading">CHECKING TRAFFIC...</div></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ═══ BOTTOM STRIP ═══════════════════════════ -->
+  <div class="bottom">
+
+    <div class="strip">
+      <div class="slabel">✉ EMAIL INBOX</div>
+      <div class="sval" id="email-strip">Loading...</div>
+    </div>
+
+    <div class="strip" onclick="rotateTicker()" style="cursor:pointer">
+      <div class="slabel">◎ NEWS — KENYA & WORLD</div>
+      <div class="sval" id="news-ticker">Loading headlines...</div>
+    </div>
+
+    <div class="strip">
+      <div class="slabel">AGENT STATUS</div>
+      <div class="statusbar" id="statusbar">
+        <div class="si"><div class="sid ok"></div>WEATHER</div>
+        <div class="si"><div class="sid ok"></div>NEWS</div>
+        <div class="si"><div class="sid ok"></div>FLIGHTS</div>
+        <div class="si"><div class="sid ok"></div>TRAFFIC</div>
+        <div class="si"><div class="sid ok"></div>HOME</div>
+        <div class="si"><div class="sid ok"></div>EMAIL</div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /shell -->
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  CLOCK
+// ═══════════════════════════════════════════════════════════
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    [n.getHours(), n.getMinutes(), n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');
+}
+setInterval(tick, 1000); tick();
+
+// ═══════════════════════════════════════════════════════════
+//  VOICE (Web Speech API — built into Chrome/Edge, no install)
+// ═══════════════════════════════════════════════════════════
+let voiceOn = true;
+const synth = window.speechSynthesis;
+let voice = null;
+
+function loadVoice() {
+  const vs = synth.getVoices();
+  voice = vs.find(v=>v.lang.startsWith('en-')&&v.name.includes('Google')) ||
+          vs.find(v=>v.lang.startsWith('en-')) || vs[0];
+}
+if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = loadVoice;
+setTimeout(loadVoice, 500);
+
+function speak(text) {
+  if (!voiceOn || !synth) return;
+  synth.cancel();
+  const clean = text.replace(/[*_`#\-=>|]+/g,' ').replace(/\s+/g,' ').trim();
+  if (!clean) return;
+  const u = new SpeechSynthesisUtterance(clean);
+  if (voice) u.voice = voice;
+  u.rate = 0.92; u.pitch = 0.85; u.volume = 1;
+  synth.speak(u);
+}
+
+function toggleVoice() {
+  voiceOn = !voiceOn;
+  const b = document.getElementById('vbtn');
+  b.textContent = voiceOn ? '🔊' : '🔇';
+  b.classList.toggle('on', voiceOn);
+  if (!voiceOn) synth.cancel();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  WEBSOCKET CHAT
+// ═══════════════════════════════════════════════════════════
+let ws = null;
+let wsReady = false;
+
+function connectWS() {
+  try {
+    ws = new WebSocket(`ws://${location.host}/ws/chat`);
+    ws.onopen  = () => { wsReady = true; };
+    ws.onclose = () => { wsReady = false; setTimeout(connectWS, 2000); };
+    ws.onerror = () => { wsReady = false; };
+  } catch(e) { setTimeout(connectWS, 3000); }
+}
+connectWS();
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function addMsg(role, text) {
+  const box = document.getElementById('msgs');
+  const d = document.createElement('div');
+  d.className = `msg ${role}`;
+  const who = role==='user' ? 'YOU »' : 'JARVIS »';
+  d.innerHTML = `<span class="who">${who}</span> <span class="txt">${esc(text)}</span>`;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+  return d;
+}
+
+function setThinking(on) {
+  document.getElementById('core-wrap').classList.toggle('thinking', on);
+  document.getElementById('thinking-ind').textContent = on ? 'PROCESSING...' : 'STANDBY';
+}
+
+function focusChat() { document.getElementById('cinput').focus(); }
+
+function sendMsg() {
+  const inp = document.getElementById('cinput');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  inp.value = '';
+  addMsg('user', txt);
+  setThinking(true);
+
+  if (wsReady) {
+    let div = null, full = '';
+    ws.send(JSON.stringify({message: txt}));
+    ws.onmessage = e => {
+      const d = JSON.parse(e.data);
+      if (d.type === 'chunk') {
+        full += d.text;
+        if (!div) div = addMsg('bot','');
+        div.querySelector('.txt').textContent = full;
+        document.getElementById('msgs').scrollTop = 9999;
+      } else if (d.type === 'done') {
+        setThinking(false);
+        speak(full);
+        ws.onmessage = null;
+      } else if (d.type === 'error') {
+        setThinking(false);
+        addMsg('bot', '[ERROR] ' + d.message);
+        ws.onmessage = null;
+      }
+    };
+  } else {
+    fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:txt})})
+      .then(r=>r.json())
+      .then(d=>{ setThinking(false); const r=d.response||d.error||'No response'; addMsg('bot',r); speak(r); })
+      .catch(()=>{ setThinking(false); addMsg('bot','Connection error.'); });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AGENT DATA FETCHERS
+// ═══════════════════════════════════════════════════════════
+function row(label, val, cls='') {
+  return `<div class="drow"><span class="dlabel">${label}</span><span class="dval ${cls}">${esc(val)}</span></div>`;
+}
+
+function setStatus(agent, ok) {
+  const bar = document.getElementById('statusbar');
+  const items = bar.querySelectorAll('.si');
+  const names = ['WEATHER','NEWS','FLIGHTS','TRAFFIC','HOME','EMAIL'];
+  const idx = names.indexOf(agent.toUpperCase());
+  if (idx >= 0) {
+    const dot = items[idx].querySelector('.sid');
+    dot.className = 'sid ' + (ok ? 'ok' : 'err');
+  }
+}
+
+async function fetchWeather() {
+  const el = document.getElementById('weather-content');
+  el.innerHTML = '<div class="loading">FETCHING...</div>';
+  try {
+    const d = await fetch('/api/weather').then(r=>r.json());
+    const temp = d.temp || '—';
+    document.getElementById('weather-top').textContent = temp;
+    el.innerHTML =
+      (d.note ? `<div class="note">${d.note}</div>` : '') +
+      row('TEMP', temp, String(temp).includes('3')&&parseInt(temp)>30?'hot':'ok') +
+      row('FEELS LIKE', d.feels_like||'—') +
+      row('HUMIDITY', d.humidity||'—') +
+      row('WIND SPEED', d.wind_speed||'—') +
+      row('CONDITIONS', d.description||'—') +
+      row('VISIBILITY', d.visibility_km ? d.visibility_km+'km' : '—');
+    setStatus('weather', !d.error);
+  } catch(e) {
+    el.innerHTML = '<div class="dval error">CONNECTION ERROR</div>';
+    setStatus('weather', false);
+  }
+}
+
+async function fetchHome() {
+  const el = document.getElementById('home-content');
+  el.innerHTML = '<div class="loading">CONNECTING...</div>';
+  try {
+    const d = await fetch('/api/home').then(r=>r.json());
+    const devs = d.devices || [];
+    el.innerHTML = (d.note ? `<div class="note">${d.note}</div>` : '') +
+      devs.slice(0,7).map(dev => {
+        const on = ['on','cool','heat','home'].includes(dev.state);
+        const icon = dev.entity_id.startsWith('light')?'💡':dev.entity_id.startsWith('climate')?'❄':dev.entity_id.startsWith('sensor')?'📡':'⚡';
+        return row(icon+' '+(dev.friendly_name||dev.entity_id).slice(0,20).toUpperCase(), dev.state.toUpperCase(), on?'ok':'');
+      }).join('') || '<div class="note">NO DEVICES FOUND</div>';
+    setStatus('home', true);
+  } catch(e) {
+    el.innerHTML = '<div class="dval error">CONNECTION ERROR</div>';
+    setStatus('home', false);
+  }
+}
+
+async function fetchFlights() {
+  const el = document.getElementById('flights-content');
+  el.innerHTML = '<div class="loading">SCANNING AIRSPACE...</div>';
+  try {
+    const d = await fetch('/api/flights').then(r=>r.json());
+    const fl = d.flights || [];
+    if (!fl.length) {
+      el.innerHTML = '<div class="note">NO AIRCRAFT IN RANGE</div>';
+    } else {
+      el.innerHTML = (d.note ? `<div class="note">${d.note}</div>` : '') +
+        fl.slice(0,6).map(f =>
+          `<div class="drow">
+            <span class="dlabel">✈ ${esc(f.callsign||'UNKN')}</span>
+            <span class="dval" style="font-size:9px">${f.altitude_m||0}m &nbsp; ${f.distance_km||0}km</span>
+          </div>`
+        ).join('');
+    }
+    setStatus('flights', true);
+  } catch(e) {
+    el.innerHTML = '<div class="dval error">CONNECTION ERROR</div>';
+    setStatus('flights', false);
+  }
+}
+
+async function fetchTraffic() {
+  const el = document.getElementById('traffic-content');
+  el.innerHTML = '<div class="loading">CHECKING TRAFFIC...</div>';
+  try {
+    const d = await fetch('/api/traffic').then(r=>r.json());
+    let html = d.note ? `<div class="note">${d.note}</div>` : '';
+    if (d.overall_congestion) {
+      const lvl = d.overall_congestion.toLowerCase();
+      const cls = lvl.includes('heavy')?'hot':lvl.includes('moderate')?'warn':'ok';
+      html += row('CONGESTION', d.overall_congestion.toUpperCase(), cls);
+    }
+    if (d.incidents) {
+      d.incidents.slice(0,3).forEach(i => { html += row(esc(i.road||'ROAD'), '+'+i.delay_min+' MIN', 'warn'); });
+    }
+    if (d.flow_summary) html += `<div class="note" style="margin-top:4px;">${esc(d.flow_summary)}</div>`;
+    if (d.current_speed_kmh) {
+      html += row('SPEED NOW', d.current_speed_kmh+' km/h');
+      html += row('FREE FLOW', (d.free_flow_speed_kmh||0)+' km/h');
+    }
+    el.innerHTML = html || '<div class="note">NO DATA</div>';
+    setStatus('traffic', !d.error);
+  } catch(e) {
+    el.innerHTML = '<div class="dval error">CONNECTION ERROR</div>';
+    setStatus('traffic', false);
+  }
+}
+
+async function fetchEmail() {
+  try {
+    const d = await fetch('/api/email').then(r=>r.json());
+    const strip = document.getElementById('email-strip');
+    const emails = d.emails || [];
+    if (emails.length) {
+      strip.textContent = `${d.count||emails.length} msgs — ${emails[0].subject} · ${(emails[0].from||'').split('<')[0].trim()}`;
+    } else {
+      strip.textContent = d.note || 'Inbox empty';
+    }
+    setStatus('email', !d.error);
+  } catch(e) {
+    document.getElementById('email-strip').textContent = 'Email unavailable';
+    setStatus('email', false);
+  }
+}
+
+let newsItems = [], newsIdx = 0;
+async function fetchNews() {
+  try {
+    const d = await fetch('/api/news').then(r=>r.json());
+    newsItems = (d.articles||[]).map(a=>a.title).filter(Boolean);
+    if (!newsItems.length) newsItems = [d.note||'No news'];
+    setStatus('news', true);
+    rotateTicker();
+  } catch(e) {
+    newsItems = ['News feed unavailable'];
+    setStatus('news', false);
+  }
+}
+
+function rotateTicker() {
+  if (!newsItems.length) return;
+  const el = document.getElementById('news-ticker');
+  el.style.transition = 'opacity .35s';
+  el.style.opacity = '0';
+  setTimeout(()=>{
+    el.textContent = newsItems[newsIdx++ % newsItems.length];
+    el.style.opacity = '1';
+  }, 350);
+}
+
+async function fetchStatus() {
+  try {
+    const d = await fetch('/api/status').then(r=>r.json());
+    const names = d.agents || [];
+    document.getElementById('agent-count').textContent = names.length + ' AGENTS';
+    const loc = d.location || {};
+    if (loc.city) document.getElementById('loc-display').textContent = (loc.city+', '+(loc.country||'')).toUpperCase();
+
+    const pills = document.getElementById('agent-pills');
+    pills.innerHTML = names.map(n=>`<div class="pill on">${n.toUpperCase()}</div>`).join('');
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT & AUTO-REFRESH
+// ═══════════════════════════════════════════════════════════
+fetchStatus();
+fetchWeather();
+fetchFlights();
+fetchHome();
+fetchTraffic();
+fetchEmail();
+fetchNews();
+
+setInterval(rotateTicker, 9000);
+setInterval(()=>{ fetchWeather(); fetchFlights(); fetchTraffic(); }, 60000);
+setInterval(()=>{ fetchHome(); fetchEmail(); }, 120000);
+setInterval(fetchNews, 300000);
+</script>
+</body>
+</html>

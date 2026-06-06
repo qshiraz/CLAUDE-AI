@@ -42,12 +42,6 @@ class AgentRegistry:
         from jarvis.agents.flight_agent import FlightAgent
         from jarvis.agents.traffic_agent import TrafficAgent
         from jarvis.agents.education_agent import EducationAgent
-        from jarvis.agents.camera_agent import CameraAgent
-        from jarvis.agents.guard_vision_agent import GuardVisionAgent
-        from jarvis.agents.hik_connect_agent import HikConnectAgent
-        from jarvis.agents.guard_vision_share_agent import GuardVisionShareAgent
-        from jarvis.agents.guard_vision_browser_agent import GuardVisionBrowserAgent
-
         builtin_map = {
             "weather": WeatherAgent,
             "smart_home": SmartHomeAgent,
@@ -56,7 +50,6 @@ class AgentRegistry:
             "flights": FlightAgent,
             "traffic": TrafficAgent,
             "education": EducationAgent,
-            "guard_vision_browser": GuardVisionBrowserAgent,
         }
 
         for key, cls in builtin_map.items():

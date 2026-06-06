@@ -124,7 +124,7 @@ class JarvisOrchestrator:
         if final_msg is not None:
             for block in final_msg.content:  # type: ignore[attr-defined]
                 if block.type == "thinking":
-                    blocks.append({"type": "thinking", "thinking": block.thinking})
+                    blocks.append({"type": "thinking", "thinking": block.thinking, "signature": block.signature})
                 elif block.type == "text" and block.text:
                     blocks.append({"type": "text", "text": block.text})
                 elif block.type == "tool_use":

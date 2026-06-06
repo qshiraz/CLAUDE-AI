@@ -100,6 +100,28 @@ async def api_email():
     return JSONResponse(await _dispatch("check_inbox", {"count": 5, "unread_only": True}))
 
 
+@app.get("/api/system")
+async def api_system():
+    try:
+        import psutil
+        cpu = psutil.cpu_percent(interval=0.1)
+        ram = psutil.virtual_memory()
+        disk = psutil.disk_usage("/")
+        net = psutil.net_io_counters()
+        return JSONResponse({
+            "cpu_percent": cpu,
+            "ram_percent": ram.percent,
+            "ram_used_gb": round(ram.used / 1e9, 1),
+            "ram_total_gb": round(ram.total / 1e9, 1),
+            "disk_percent": disk.percent,
+            "disk_free_gb": round(disk.free / 1e9, 1),
+            "net_sent_mb": round(net.bytes_sent / 1e6, 1),
+            "net_recv_mb": round(net.bytes_recv / 1e6, 1),
+        })
+    except Exception:
+        return JSONResponse({"cpu_percent": 0, "ram_percent": 0})
+
+
 @app.get("/api/status")
 async def api_status():
     return JSONResponse({

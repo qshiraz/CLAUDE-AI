@@ -2,1085 +2,804 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>J.A.R.V.I.S — AI Command Center</title>
+<title>JARVIS OS — Stark Industries</title>
 <style>
-:root {
-  --c: #00e5ff;
-  --c2: #0077aa;
-  --bg: #000810;
-  --pb: rgba(0,229,255,0.06);
-  --pb2: rgba(0,229,255,0.12);
-  --border: rgba(0,229,255,0.35);
-  --glow: 0 0 12px rgba(0,229,255,0.5);
-  --glow2: 0 0 25px rgba(0,229,255,0.3);
-  --dim: rgba(0,229,255,0.45);
-  --red: #ff3340;
-  --green: #00ff88;
-  --yellow: #ffcc00;
-  --white: #e0f7ff;
+:root{
+  --bg:#010c18; --panel:rgba(0,20,45,0.85); --b:#0a3d6b;
+  --c:#00b4ff; --bright:#44ddff; --dim:rgba(0,150,220,0.4);
+  --white:#d0eeff; --red:#ff2244; --green:#00ff88; --yellow:#ffaa00;
+  --glow:0 0 12px rgba(0,180,255,0.6); --glow2:0 0 30px rgba(0,180,255,0.35);
 }
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:var(--bg);color:var(--c);font-family:'Courier New',monospace;font-size:11px;overflow:hidden;}
 
-*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+/* Grid bg */
+body::before{content:'';position:fixed;inset:0;z-index:0;
+  background-image:linear-gradient(rgba(0,100,180,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(0,100,180,0.06) 1px,transparent 1px);
+  background-size:40px 40px;}
 
-html, body {
-  height: 100%;
-  background: var(--bg);
-  color: var(--c);
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 11px;
-  overflow: hidden;
-  user-select: none;
-}
+/* Scanline */
+.scan{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(0,180,255,0.2),transparent);
+  animation:scan 6s linear infinite;}
+@keyframes scan{0%{top:0}100%{top:100vh}}
 
-/* ── Background grid ─────────────────────────────── */
-.grid-bg {
-  position: fixed; inset: 0; z-index: 0;
-  background-image:
-    linear-gradient(rgba(0,229,255,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,229,255,0.04) 1px, transparent 1px);
-  background-size: 60px 60px;
-}
+/* CRT */
+body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);}
 
-/* Moving scan line */
-.scanline {
-  position: fixed; left:0; right:0; height:2px; z-index:1; pointer-events:none;
-  background: linear-gradient(90deg, transparent 0%, rgba(0,229,255,0.25) 50%, transparent 100%);
-  animation: scan 5s linear infinite;
-}
-@keyframes scan { 0%{top:0} 100%{top:100vh} }
+/* Shell */
+.shell{position:relative;z-index:2;height:100vh;display:flex;flex-direction:column;padding:4px;gap:4px;}
 
-/* CRT noise overlay */
-body::after {
-  content:''; position:fixed; inset:0; z-index:999; pointer-events:none;
-  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 4px);
-}
+/* ═══ TOP BAR ══════════════════════════════════════════ */
+.topbar{display:flex;align-items:center;justify-content:space-between;
+  padding:4px 14px;border:1px solid var(--b);background:var(--panel);
+  box-shadow:var(--glow);flex-shrink:0;}
+.logo-text{font-size:15px;font-weight:bold;letter-spacing:8px;text-shadow:var(--glow);}
+.logo-sub{font-size:8px;letter-spacing:4px;color:var(--dim);margin-top:1px;}
+.top-stats{display:flex;gap:20px;align-items:center;}
+.stat-chip{display:flex;flex-direction:column;align-items:center;gap:1px;}
+.stat-chip .lbl{font-size:7px;letter-spacing:2px;color:var(--dim);}
+.stat-chip .val{font-size:12px;font-weight:bold;color:var(--white);text-shadow:var(--glow);}
+.top-right{display:flex;align-items:center;gap:16px;}
+.big-clock{font-size:22px;letter-spacing:4px;text-shadow:var(--glow);font-weight:bold;}
+.date-str{font-size:9px;letter-spacing:2px;color:var(--dim);}
+.dot-live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 6px var(--green);animation:pdot 2s ease-in-out infinite;margin-right:4px;}
+@keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
 
-/* ── Layout shell ────────────────────────────────── */
-.shell {
-  position: relative; z-index:2;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: 5px;
-  gap: 5px;
-}
+/* ═══ MAIN 3-COL ════════════════════════════════════════ */
+.main{flex:1;display:grid;grid-template-columns:200px 1fr 220px;gap:4px;min-height:0;}
 
-/* ── Top bar ─────────────────────────────────────── */
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 14px;
-  border: 1px solid var(--border);
-  background: var(--pb);
-  box-shadow: var(--glow);
-  flex-shrink: 0;
-}
+/* ── Panel base ── */
+.pn{border:1px solid var(--b);background:var(--panel);position:relative;overflow:hidden;display:flex;flex-direction:column;padding:7px 8px;}
+.pn::before,.pn::after{content:'';position:absolute;width:12px;height:12px;border-color:var(--c);border-style:solid;}
+.pn::before{top:3px;left:3px;border-width:2px 0 0 2px;}
+.pn::after{bottom:3px;right:3px;border-width:0 2px 2px 0;}
+.pn-title{font-size:8px;letter-spacing:3px;color:var(--c);text-shadow:var(--glow);margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid rgba(0,120,200,0.2);flex-shrink:0;}
 
-.logo {
-  font-size: 18px;
-  font-weight: bold;
-  letter-spacing: 10px;
-  text-shadow: var(--glow);
-  color: var(--c);
-}
+/* ═══ LEFT COLUMN ════════════════════════════════════════ */
+.left-col{display:flex;flex-direction:column;gap:4px;}
+.graph-pn{flex:1;}
+canvas.graph{width:100%;height:60px;display:block;}
 
-.top-meta {
-  display: flex;
-  gap: 24px;
-  align-items: center;
-  font-size: 10px;
-  letter-spacing: 2px;
-}
+.bar-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.bar-lbl{font-size:8px;color:var(--dim);width:28px;flex-shrink:0;letter-spacing:1px;}
+.bar-track{flex:1;height:5px;background:rgba(0,80,150,0.3);border-radius:3px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:3px;transition:width .5s;background:linear-gradient(90deg,var(--c2,#0066cc),var(--c));}
+.bar-val{font-size:8px;color:var(--white);width:28px;text-align:right;flex-shrink:0;}
 
-.dot-live {
-  display: inline-block;
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 6px var(--green);
-  animation: pulse-dot 2s ease-in-out infinite;
-  margin-right: 5px;
-}
-@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
+.net-row{display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid rgba(0,80,150,0.15);}
+.net-lbl{font-size:8px;color:var(--dim);letter-spacing:1px;}
+.net-val{font-size:9px;color:var(--white);}
+.net-val.up{color:var(--yellow);}
+.net-val.dn{color:var(--green);}
 
-.clock {
-  font-size: 17px;
-  letter-spacing: 4px;
-  text-shadow: var(--glow);
-}
+/* ═══ CENTER ════════════════════════════════════════════ */
+.center-col{display:flex;flex-direction:column;gap:4px;}
 
-/* ── Main grid ───────────────────────────────────── */
-.main {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1.15fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 5px;
-  min-height: 0;
-}
+/* Arc Reactor panel */
+.reactor-pn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
 
-/* Center panel spans 2 rows */
-.center-col {
-  grid-row: 1 / 3;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
+.reactor-wrap{position:relative;width:260px;height:260px;display:flex;align-items:center;justify-content:center;}
 
-/* ── Panel ────────────────────────────────────────── */
-.panel {
-  border: 1px solid var(--border);
-  background: var(--pb);
-  box-shadow: var(--glow), inset 0 0 30px rgba(0,229,255,0.015);
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  padding: 8px 10px;
-}
+.reactor-svg{position:absolute;inset:0;width:100%;height:100%;}
 
-/* Corner accents */
-.panel::before, .panel::after {
-  content:'';
-  position: absolute;
-  width:14px; height:14px;
-  border-color: var(--c);
-  border-style: solid;
-}
-.panel::before { top:4px; left:4px; border-width:2px 0 0 2px; }
-.panel::after  { bottom:4px; right:4px; border-width:0 2px 2px 0; }
+/* Rotating rings via CSS */
+.rx-r1{animation:rspin 8s linear infinite;}
+.rx-r2{animation:rspin 14s linear infinite reverse;}
+.rx-r3{animation:rspin 22s linear infinite;}
+.rx-inner{animation:rspin 5s linear infinite reverse;}
+@keyframes rspin{from{transform:rotate(0) translate(-50%,-50%)}to{transform:rotate(360deg) translate(-50%,-50%)}}
 
-.ph {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid rgba(0,229,255,0.15);
-  flex-shrink: 0;
-}
+/* SVG animations */
+#ring-outer{animation:rotsvg 8s linear infinite;transform-origin:150px 150px;}
+#ring-mid{animation:rotsvg 14s linear infinite reverse;transform-origin:150px 150px;}
+#ring-inner{animation:rotsvg 5s linear infinite reverse;transform-origin:150px 150px;}
+#petals-g{animation:rotsvg 20s linear infinite;transform-origin:150px 150px;}
+@keyframes rotsvg{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
-.ptitle {
-  font-size: 10px;
-  letter-spacing: 3px;
-  color: var(--c);
-  text-shadow: var(--glow);
-  font-weight: bold;
-}
+.reactor-label{font-size:8px;letter-spacing:4px;color:var(--dim);margin-top:6px;}
+.reactor-status{font-size:9px;letter-spacing:2px;color:var(--green);margin-top:2px;text-shadow:0 0 6px var(--green);}
 
-.pbadge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+.thinking-ring{display:none;}
+.thinking .thinking-ring{display:block;}
 
-.rbtn {
-  background: none;
-  border: 1px solid rgba(0,229,255,0.25);
-  color: var(--dim);
-  cursor: pointer;
-  padding: 1px 7px;
-  font-family: monospace;
-  font-size: 10px;
-  transition: all .2s;
-}
-.rbtn:hover { border-color:var(--c); color:var(--c); box-shadow:var(--glow); }
+/* Agent pills row */
+.pills-row{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:4px;}
+.pill{font-size:7px;letter-spacing:1px;border:1px solid rgba(0,150,220,0.4);padding:2px 6px;color:var(--dim);}
+.pill.on{border-color:var(--green);color:var(--green);box-shadow:0 0 5px rgba(0,255,136,0.3);}
 
-.pcontent {
-  flex:1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
+/* Chat panel */
+.chat-pn{flex-shrink:0;}
+.msgs{height:80px;overflow-y:auto;margin:4px 0;scrollbar-width:thin;scrollbar-color:var(--b) transparent;}
+.msgs::-webkit-scrollbar{width:2px;}
+.msgs::-webkit-scrollbar-thumb{background:var(--b);}
+.msg{margin-bottom:3px;font-size:10px;line-height:1.5;}
+.msg .who{font-weight:bold;}
+.msg.user .who{color:#4488bb;} .msg.user .txt{color:#88bbdd;}
+.msg.bot .who{color:var(--c);}  .msg.bot .txt{color:var(--white);}
+.wave{height:3px;background:rgba(0,100,200,0.2);border-radius:2px;margin:3px 0;}
+.wave-fill{height:100%;background:var(--green);border-radius:2px;width:0%;transition:width .1s;}
+.chat-row{display:flex;gap:4px;}
+.cinput{flex:1;background:rgba(0,30,60,0.6);border:1px solid rgba(0,100,180,0.4);color:var(--white);
+  padding:5px 8px;font-family:monospace;font-size:10px;outline:none;}
+.cinput:focus{border-color:var(--c);box-shadow:var(--glow);}
+.cinput::placeholder{color:var(--dim);}
+.mbtn{background:none;border:1px solid rgba(0,100,180,0.4);color:var(--dim);padding:5px 8px;cursor:pointer;font-size:12px;transition:all .2s;}
+.mbtn.on{color:var(--green);border-color:var(--green);box-shadow:0 0 8px rgba(0,255,136,.5);animation:mpulse .8s ease-in-out infinite;}
+@keyframes mpulse{0%,100%{box-shadow:0 0 8px rgba(0,255,136,.5)}50%{box-shadow:0 0 18px rgba(0,255,136,.9)}}
+.sbtn{background:rgba(0,80,160,0.3);border:1px solid rgba(0,140,220,0.5);color:var(--c);
+  padding:5px 12px;cursor:pointer;font-family:monospace;font-size:10px;letter-spacing:2px;transition:all .2s;}
+.sbtn:hover{background:rgba(0,100,200,0.4);box-shadow:var(--glow);}
+.vbtn{background:none;border:1px solid rgba(0,100,180,0.4);color:var(--dim);padding:5px 8px;cursor:pointer;font-size:12px;transition:all .2s;}
+.vbtn.on{color:var(--green);border-color:var(--green);}
 
-.drow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 2px 0;
-  border-bottom: 1px solid rgba(0,229,255,0.05);
-}
-.dlabel { color:var(--dim); font-size:9px; text-transform:uppercase; letter-spacing:1px; }
-.dval   { color:var(--white); font-size:10px; font-weight:bold; }
-.dval.hot   { color:#ff7755; }
-.dval.ok    { color:var(--green); }
-.dval.warn  { color:var(--yellow); }
-.dval.error { color:var(--red); }
+/* ═══ RIGHT COLUMN ═══════════════════════════════════════ */
+.right-col{display:flex;flex-direction:column;gap:4px;}
 
-.note { color:var(--dim); font-size:9px; font-style:italic; margin-bottom:2px; }
-.loading { color:var(--dim); font-size:9px; letter-spacing:2px; animation:blink 1s step-end infinite; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+.clock-pn{flex-shrink:0;text-align:center;padding:8px;}
+.big-time{font-size:32px;letter-spacing:6px;font-weight:bold;text-shadow:var(--glow2);color:var(--bright);}
+.big-date{font-size:9px;letter-spacing:3px;color:var(--dim);margin-top:2px;}
+.big-loc{font-size:8px;letter-spacing:2px;color:var(--c);margin-top:2px;}
 
-/* ── Centre panel — orb + chat ───────────────────── */
-.core-panel {
-  flex:1;
-  min-height: 0;
-}
+.weather-big{font-size:28px;font-weight:bold;color:var(--white);text-shadow:var(--glow);}
+.weather-desc{font-size:10px;color:var(--c);letter-spacing:2px;margin-top:2px;}
+.w-row{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(0,80,150,0.15);}
+.w-lbl{font-size:8px;color:var(--dim);letter-spacing:1px;}
+.w-val{font-size:9px;color:var(--white);}
 
-.orb-area {
-  flex:1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  min-height: 0;
-  padding: 10px 0;
-}
+.news-item{font-size:9px;color:var(--white);line-height:1.5;padding:3px 0;border-bottom:1px solid rgba(0,80,150,0.1);cursor:pointer;transition:color .2s;}
+.news-item:hover{color:var(--bright);}
+.news-num{color:var(--dim);margin-right:4px;font-size:8px;}
 
-.orb-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 220px; height: 220px;
-}
+.agent-list .ag-row{display:flex;align-items:center;gap:6px;padding:2px 0;border-bottom:1px solid rgba(0,80,150,0.1);}
+.ag-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.ag-dot.ok{background:var(--green);box-shadow:0 0 5px var(--green);}
+.ag-dot.err{background:var(--red);box-shadow:0 0 5px var(--red);}
+.ag-name{font-size:9px;color:var(--white);letter-spacing:1px;flex:1;}
+.ag-status{font-size:8px;color:var(--green);}
 
-.ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 1px solid rgba(0,229,255,0.25);
-  animation: spin linear infinite;
-}
-.r1 { width:155px; height:155px; animation-duration:10s; }
-.r2 { width:185px; height:185px; animation-duration:18s; animation-direction:reverse; border-style:dashed; opacity:.6; }
-.r3 { width:215px; height:215px; animation-duration:30s; opacity:.35; }
+/* ═══ BOTTOM BAR ════════════════════════════════════════ */
+.bottombar{display:flex;align-items:center;justify-content:space-between;
+  padding:4px 16px;border:1px solid var(--b);background:var(--panel);
+  box-shadow:var(--glow);flex-shrink:0;}
+.stark-logo{font-size:12px;letter-spacing:6px;color:var(--c);text-shadow:var(--glow);font-weight:bold;}
+.bottom-stats{display:flex;gap:20px;}
+.b-stat{font-size:9px;letter-spacing:1px;color:var(--dim);}
+.b-stat span{color:var(--white);}
+.clap-btn{background:none;border:1px solid rgba(0,100,180,0.4);color:var(--dim);
+  padding:2px 10px;cursor:pointer;font-size:9px;letter-spacing:1px;transition:all .2s;}
+.clap-btn.on{color:var(--green);border-color:var(--green);box-shadow:0 0 6px rgba(0,255,136,.4);}
 
-.r1::after {
-  content:''; position:absolute; top:-4px; left:50%;
-  width:8px; height:8px; border-radius:50%;
-  background:var(--c); box-shadow:var(--glow);
-  transform:translateX(-50%);
-}
+/* Thinking state */
+.thinking .reactor-status{color:var(--c);animation:blink .5s step-end infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 
-@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+/* Listening state */
+.listening .reactor-status{color:var(--green);animation:none;}
 
-.orb {
-  width: 120px; height: 120px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 38% 32%, #00aaff 0%, #003388 45%, #000820 100%);
-  box-shadow: 0 0 35px rgba(0,180,255,.6), 0 0 70px rgba(0,80,220,.35), inset 0 0 25px rgba(0,200,255,.12);
-  position: relative;
-  animation: orb-pulse 3.5s ease-in-out infinite;
-  cursor: pointer;
-  transition: transform .2s;
-  z-index:1;
-}
-.orb:hover { transform:scale(1.05); }
-.orb::before {
-  content:'';
-  position:absolute; top:18%; left:22%;
-  width:22%; height:14%;
-  background:rgba(255,255,255,.28);
-  border-radius:50%;
-  transform:rotate(-30deg);
-  filter:blur(2px);
-}
-
-@keyframes orb-pulse {
-  0%,100% { box-shadow:0 0 35px rgba(0,180,255,.6),0 0 70px rgba(0,80,220,.35),inset 0 0 25px rgba(0,200,255,.12); }
-  50%      { box-shadow:0 0 55px rgba(0,200,255,.85),0 0 100px rgba(0,100,255,.5),inset 0 0 40px rgba(0,200,255,.22); }
-}
-
-.orb-label {
-  font-size: 9px;
-  letter-spacing: 3px;
-  color: var(--dim);
-  margin-top: 8px;
-  text-align: center;
-}
-
-.agent-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: center;
-  margin-top: 6px;
-}
-.pill {
-  font-size: 8px;
-  letter-spacing: 1px;
-  border: 1px solid rgba(0,229,255,.3);
-  padding: 2px 7px;
-  color: var(--dim);
-  background: rgba(0,229,255,.04);
-}
-.pill.on { border-color:var(--green); color:var(--green); box-shadow:0 0 5px rgba(0,255,136,.3); }
-
-/* ── Chat panel ──────────────────────────────────── */
-.chat-panel { flex-shrink:0; }
-
-.msgs {
-  height: 90px;
-  overflow-y: auto;
-  margin-bottom: 6px;
-  padding: 2px 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--c2) transparent;
-}
-.msgs::-webkit-scrollbar { width:2px; }
-.msgs::-webkit-scrollbar-thumb { background:var(--c2); }
-
-.msg { margin-bottom:3px; font-size:10px; line-height:1.5; }
-.msg .who { font-weight:bold; }
-.msg.user .who { color:#5599bb; }
-.msg.bot  .who { color:var(--c); }
-.msg.user span.txt { color:#99ccdd; }
-.msg.bot  span.txt { color:var(--white); }
-
-.chat-row {
-  display: flex;
-  gap: 5px;
-}
-
-.cinput {
-  flex:1;
-  background: rgba(0,229,255,.04);
-  border: 1px solid rgba(0,229,255,.25);
-  color: var(--white);
-  padding: 5px 8px;
-  font-family: monospace;
-  font-size: 10px;
-  outline: none;
-}
-.cinput:focus { border-color:var(--c); box-shadow:var(--glow); }
-.cinput::placeholder { color:var(--dim); }
-
-.sbtn {
-  background: rgba(0,229,255,.1);
-  border: 1px solid rgba(0,229,255,.35);
-  color: var(--c);
-  padding: 5px 12px;
-  cursor: pointer;
-  font-family: monospace;
-  font-size: 10px;
-  letter-spacing: 2px;
-  transition: all .2s;
-}
-.sbtn:hover { background:rgba(0,229,255,.2); box-shadow:var(--glow); }
-
-.vbtn {
-  background: none;
-  border: 1px solid rgba(0,229,255,.25);
-  color: var(--dim);
-  padding: 5px 8px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all .2s;
-}
-.vbtn.on { color:var(--green); border-color:var(--green); box-shadow:0 0 7px rgba(0,255,136,.4); }
-
-/* ── Bottom strip ────────────────────────────────── */
-.bottom {
-  display: grid;
-  grid-template-columns: 2fr 2fr 1.2fr;
-  gap: 5px;
-  flex-shrink: 0;
-}
-
-.strip {
-  border: 1px solid var(--border);
-  background: var(--pb);
-  box-shadow: var(--glow);
-  padding: 5px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  position: relative;
-}
-.strip::before, .strip::after {
-  content:'';
-  position: absolute;
-  width:10px; height:10px;
-  border-color: var(--c); border-style:solid;
-}
-.strip::before { top:3px; left:3px; border-width:1px 0 0 1px; }
-.strip::after  { bottom:3px; right:3px; border-width:0 1px 1px 0; }
-
-.slabel { font-size:8px; letter-spacing:2px; color:var(--dim); }
-.sval   { font-size:10px; color:var(--white); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-
-/* Status indicators */
-.statusbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.si {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 8px;
-  letter-spacing: 1px;
-}
-.sid {
-  width:6px; height:6px; border-radius:50%;
-}
-.sid.ok    { background:var(--green); box-shadow:0 0 4px var(--green); }
-.sid.warn  { background:var(--yellow); box-shadow:0 0 4px var(--yellow); }
-.sid.err   { background:var(--red); box-shadow:0 0 4px var(--red); }
-.sid.idle  { background:var(--dim); }
-
-/* ── Thinking state ──────────────────────────────── */
-.thinking #jarvis-orb { animation-duration:.6s !important; }
-.thinking-ind { font-size:8px; letter-spacing:2px; color:var(--dim); }
-.thinking .thinking-ind { color:var(--c); animation:blink .5s step-end infinite; }
-
-/* ── Listening (voice input) state ───────────────── */
-.listening #jarvis-orb {
-  animation-duration: .4s !important;
-  box-shadow: 0 0 55px rgba(0,255,136,.8), 0 0 110px rgba(0,255,136,.4), inset 0 0 40px rgba(0,255,136,.2) !important;
-}
-.mbtn {
-  background: none;
-  border: 1px solid rgba(0,229,255,.25);
-  color: var(--dim);
-  padding: 5px 9px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all .2s;
-  position: relative;
-}
-.mbtn.on {
-  color: var(--green);
-  border-color: var(--green);
-  box-shadow: 0 0 10px rgba(0,255,136,.5);
-  animation: mic-pulse .8s ease-in-out infinite;
-}
-@keyframes mic-pulse {
-  0%,100% { box-shadow:0 0 10px rgba(0,255,136,.5); }
-  50%      { box-shadow:0 0 20px rgba(0,255,136,.9); }
-}
-.clap-ind {
-  font-size: 8px;
-  letter-spacing: 1px;
-  cursor: pointer;
-  transition: all .2s;
-}
-.clap-ind.on  { color: var(--green); }
-.clap-ind.off { color: var(--dim); }
-
-/* Voice waveform bar */
-.wave-bar {
-  height: 3px;
-  background: rgba(0,255,136,.2);
-  border-radius: 2px;
-  margin-top: 3px;
-  overflow: hidden;
-}
-.wave-fill {
-  height: 100%;
-  background: var(--green);
-  border-radius: 2px;
-  width: 0%;
-  transition: width .1s;
-}
+.loading{color:var(--dim);font-size:9px;letter-spacing:2px;animation:blink 1s step-end infinite;}
 </style>
 </head>
 <body>
-
-<div class="grid-bg"></div>
-<div class="scanline"></div>
-
+<div class="scan"></div>
 <div class="shell">
 
-  <!-- ═══ TOP BAR ═══════════════════════════════ -->
-  <div class="topbar">
-    <div class="logo">J.A.R.V.I.S</div>
-
-    <div class="top-meta">
-      <span><span class="dot-live"></span><span id="loc-display">MOMBASA, KE</span></span>
-      <span id="weather-top" style="color:var(--white)"></span>
-      <span style="color:var(--dim)">MULTI-AGENT AI · v1.0</span>
-      <span id="agent-count" style="color:var(--dim)">6 AGENTS</span>
-    </div>
-
-    <div class="clock" id="clock">00:00:00</div>
+<!-- ═══ TOP BAR ═══════════════════════════════════════════ -->
+<div class="topbar">
+  <div>
+    <div class="logo-text">J·A·R·V·I·S</div>
+    <div class="logo-sub">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
   </div>
+  <div class="top-stats">
+    <div class="stat-chip"><div class="lbl">CPU</div><div class="val" id="t-cpu">--%</div></div>
+    <div class="stat-chip"><div class="lbl">RAM</div><div class="val" id="t-ram">--%</div></div>
+    <div class="stat-chip"><div class="lbl">DISK</div><div class="val" id="t-disk">--%</div></div>
+    <div class="stat-chip"><div class="lbl">NET ↑</div><div class="val" id="t-up" style="color:var(--yellow)">--</div></div>
+    <div class="stat-chip"><div class="lbl">NET ↓</div><div class="val" id="t-dn" style="color:var(--green)">--</div></div>
+    <div class="stat-chip"><div class="lbl">AGENTS</div><div class="val" id="t-agents">6</div></div>
+    <div class="stat-chip"><div class="lbl">LOCATION</div><div class="val" id="t-loc" style="font-size:10px;">MBA,KE</div></div>
+  </div>
+  <div class="top-right">
+    <div>
+      <div class="big-clock" id="clock">00:00:00</div>
+      <div class="date-str" id="date-str">FRIDAY · 06 JUN 2026</div>
+    </div>
+  </div>
+</div>
 
-  <!-- ═══ MAIN GRID ══════════════════════════════ -->
-  <div class="main">
+<!-- ═══ MAIN ═══════════════════════════════════════════════ -->
+<div class="main">
 
-    <!-- LEFT COL: Weather / Smart Home -->
-    <div style="display:flex;flex-direction:column;gap:5px">
+  <!-- LEFT: System monitors -->
+  <div class="left-col">
 
-      <div class="panel" style="flex:1">
-        <div class="ph">
-          <span class="ptitle">◈ WEATHER</span>
-          <div class="pbadge">
-            <span style="font-size:8px;color:var(--green);letter-spacing:1px;"><span class="dot-live" style="width:5px;height:5px"></span>LIVE</span>
-            <button class="rbtn" onclick="fetchWeather()">⟳</button>
-          </div>
-        </div>
-        <div class="pcontent" id="weather-content"><div class="loading">FETCHING DATA...</div></div>
+    <div class="pn graph-pn">
+      <div class="pn-title">◈ CPU ACTIVITY</div>
+      <canvas class="graph" id="cpu-graph" width="180" height="60"></canvas>
+      <div style="display:flex;justify-content:space-between;margin-top:3px;">
+        <span style="font-size:8px;color:var(--dim)">0%</span>
+        <span style="font-size:9px;color:var(--white)" id="cpu-val">--%</span>
+        <span style="font-size:8px;color:var(--dim)">100%</span>
       </div>
-
-      <div class="panel" style="flex:1">
-        <div class="ph">
-          <span class="ptitle">⌂ SMART HOME</span>
-          <div class="pbadge">
-            <span style="font-size:8px;color:var(--green);letter-spacing:1px;"><span class="dot-live" style="width:5px;height:5px"></span>LIVE</span>
-            <button class="rbtn" onclick="fetchHome()">⟳</button>
-          </div>
-        </div>
-        <div class="pcontent" id="home-content"><div class="loading">CONNECTING...</div></div>
-      </div>
-
     </div>
 
-    <!-- CENTRE COL: Orb + Chat -->
-    <div class="center-col">
-
-      <div class="panel core-panel" id="core-wrap">
-        <div class="ph">
-          <span class="ptitle" style="font-size:12px;letter-spacing:6px;">JARVIS CORE</span>
-          <span class="thinking-ind" id="thinking-ind">STANDBY</span>
-        </div>
-
-        <div class="orb-area" id="orb-area">
-          <div class="orb-wrap">
-            <div class="ring r3"></div>
-            <div class="ring r2"></div>
-            <div class="ring r1"></div>
-            <div class="orb" id="jarvis-orb" onclick="focusChat()"></div>
-          </div>
-          <div class="orb-label">ALL SYSTEMS NOMINAL</div>
-          <div class="agent-pills" id="agent-pills"></div>
-        </div>
+    <div class="pn graph-pn">
+      <div class="pn-title">◈ RAM USAGE</div>
+      <canvas class="graph" id="ram-graph" width="180" height="60"></canvas>
+      <div style="display:flex;justify-content:space-between;margin-top:3px;">
+        <span style="font-size:8px;color:var(--dim)" id="ram-used">--GB</span>
+        <span style="font-size:9px;color:var(--white)" id="ram-val">--%</span>
+        <span style="font-size:8px;color:var(--dim)" id="ram-total">--GB</span>
       </div>
-
-      <div class="panel chat-panel">
-        <div class="ph">
-          <span class="ptitle">◉ COMMAND INPUT</span>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="clap-ind off" id="clap-ind" onclick="toggleClap()" title="Double-clap to activate mic">👏 CLAP</span>
-            <button class="vbtn on" id="vbtn" onclick="toggleVoice()" title="Toggle speaker">🔊</button>
-          </div>
-        </div>
-        <div class="wave-bar"><div class="wave-fill" id="wave-fill"></div></div>
-        <div class="msgs" id="msgs">
-          <div class="msg bot"><span class="who">JARVIS »</span> <span class="txt">Good day. All agents online. Click 🎤 or double-clap to speak.</span></div>
-        </div>
-        <div class="chat-row">
-          <input class="cinput" id="cinput" type="text" placeholder="Type or click 🎤 to speak..." autocomplete="off"
-                 onkeydown="if(event.key==='Enter')sendMsg()">
-          <button class="mbtn" id="mbtn" onclick="toggleMic()" title="Voice input">🎤</button>
-          <button class="sbtn" onclick="sendMsg()">SEND</button>
-        </div>
-      </div>
-
     </div>
 
-    <!-- RIGHT COL: Flights / Traffic -->
-    <div style="display:flex;flex-direction:column;gap:5px">
-
-      <div class="panel" style="flex:1">
-        <div class="ph">
-          <span class="ptitle">✈ AIRSPACE</span>
-          <div class="pbadge">
-            <span style="font-size:8px;color:var(--green);letter-spacing:1px;"><span class="dot-live" style="width:5px;height:5px"></span>LIVE</span>
-            <button class="rbtn" onclick="fetchFlights()">⟳</button>
-          </div>
-        </div>
-        <div class="pcontent" id="flights-content"><div class="loading">SCANNING AIRSPACE...</div></div>
+    <div class="pn" style="flex:1">
+      <div class="pn-title">◈ SYSTEM LOAD</div>
+      <div class="bar-row"><span class="bar-lbl">CPU</span><div class="bar-track"><div class="bar-fill" id="bar-cpu" style="width:0%"></div></div><span class="bar-val" id="bv-cpu">0%</span></div>
+      <div class="bar-row"><span class="bar-lbl">RAM</span><div class="bar-track"><div class="bar-fill" id="bar-ram" style="width:0%;--c2:#0088cc"></div></div><span class="bar-val" id="bv-ram">0%</span></div>
+      <div class="bar-row"><span class="bar-lbl">DISK</span><div class="bar-track"><div class="bar-fill" id="bar-disk" style="width:0%;--c2:#0055aa"></div></div><span class="bar-val" id="bv-disk">0%</span></div>
+      <div style="margin-top:6px;padding-top:4px;border-top:1px solid rgba(0,80,150,0.2);">
+        <div class="net-row"><span class="net-lbl">↑ SENT</span><span class="net-val up" id="net-sent">-- MB</span></div>
+        <div class="net-row"><span class="net-lbl">↓ RECV</span><span class="net-val dn" id="net-recv">-- MB</span></div>
+        <div class="net-row"><span class="net-lbl">FREE DISK</span><span class="net-val" id="disk-free">-- GB</span></div>
       </div>
+    </div>
 
-      <div class="panel" style="flex:1">
-        <div class="ph">
-          <span class="ptitle">⊕ TRAFFIC</span>
-          <div class="pbadge">
-            <span style="font-size:8px;color:var(--green);letter-spacing:1px;"><span class="dot-live" style="width:5px;height:5px"></span>LIVE</span>
-            <button class="rbtn" onclick="fetchTraffic()">⟳</button>
-          </div>
-        </div>
-        <div class="pcontent" id="traffic-content"><div class="loading">CHECKING TRAFFIC...</div></div>
-      </div>
-
+    <div class="pn" style="flex:1">
+      <div class="pn-title">◈ TRAFFIC</div>
+      <div id="traffic-mini"><div class="loading">LOADING...</div></div>
     </div>
 
   </div>
 
-  <!-- ═══ BOTTOM STRIP ═══════════════════════════ -->
-  <div class="bottom">
+  <!-- CENTER: Arc Reactor + Chat -->
+  <div class="center-col">
 
-    <div class="strip">
-      <div class="slabel">✉ EMAIL INBOX</div>
-      <div class="sval" id="email-strip">Loading...</div>
+    <div class="pn reactor-pn" id="core-wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid rgba(0,80,150,0.2);">
+        <span style="font-size:9px;letter-spacing:4px;color:var(--c);text-shadow:var(--glow);font-weight:bold;">JARVIS CORE</span>
+        <span id="thinking-ind" style="font-size:8px;letter-spacing:2px;color:var(--dim);">STANDBY</span>
+      </div>
+
+      <!-- Arc Reactor SVG -->
+      <div style="display:flex;flex-direction:column;align-items:center;flex:1;justify-content:center;">
+        <div class="reactor-wrap">
+          <svg class="reactor-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="cGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+                <stop offset="25%" stop-color="#66ddff" stop-opacity="0.9"/>
+                <stop offset="60%" stop-color="#0066cc" stop-opacity="0.7"/>
+                <stop offset="100%" stop-color="#000820" stop-opacity="0"/>
+              </radialGradient>
+              <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#00aaff" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#00aaff" stop-opacity="0"/>
+              </radialGradient>
+              <filter id="gf" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+              <filter id="gf2" x="-100%" y="-100%" width="300%" height="300%">
+                <feGaussianBlur stdDeviation="8"/>
+              </filter>
+            </defs>
+
+            <!-- Outer glow -->
+            <circle cx="150" cy="150" r="140" fill="url(#glowGrad)"/>
+
+            <!-- Outermost dashed ring -->
+            <g id="ring-outer">
+              <circle cx="150" cy="150" r="140" fill="none" stroke="#0066aa" stroke-width="1" stroke-dasharray="6 3" opacity="0.6"/>
+              <!-- Tick marks -->
+              <circle cx="150" cy="10" r="3" fill="#00aaff" opacity="0.8"/>
+              <circle cx="290" cy="150" r="3" fill="#00aaff" opacity="0.8"/>
+              <circle cx="150" cy="290" r="3" fill="#00aaff" opacity="0.8"/>
+              <circle cx="10" cy="150" r="3" fill="#00aaff" opacity="0.8"/>
+            </g>
+
+            <!-- Second ring (gear-like) -->
+            <g id="ring-mid">
+              <circle cx="150" cy="150" r="118" fill="none" stroke="#0088cc" stroke-width="1.5" stroke-dasharray="4 2"/>
+              <!-- 12 notches -->
+              <circle cx="150" cy="32" r="4" fill="none" stroke="#00b4ff" stroke-width="1.5"/>
+              <circle cx="209" cy="91" r="4" fill="none" stroke="#00b4ff" stroke-width="1.5"/>
+              <circle cx="209" cy="209" r="4" fill="none" stroke="#00b4ff" stroke-width="1.5"/>
+              <circle cx="150" cy="268" r="4" fill="none" stroke="#00b4ff" stroke-width="1.5"/>
+              <circle cx="91" cy="209" r="4" fill="none" stroke="#00b4ff" stroke-width="1.5"/>
+              <circle cx="91" cy="91" r="4" fill="none" stroke="#00b4ff" stroke-width="1.5"/>
+            </g>
+
+            <!-- Inner mechanical ring -->
+            <g id="ring-inner">
+              <circle cx="150" cy="150" r="92" fill="none" stroke="#00aaff" stroke-width="2"/>
+              <!-- 8 rectangles (petals) -->
+              <rect x="147" y="58" width="6" height="20" rx="2" fill="#0088cc" stroke="#00b4ff" stroke-width="1"/>
+              <rect x="147" y="58" width="6" height="20" rx="2" fill="#0088cc" stroke="#00b4ff" stroke-width="1" transform="rotate(45,150,150)"/>
+              <rect x="147" y="58" width="6" height="20" rx="2" fill="#0088cc" stroke="#00b4ff" stroke-width="1" transform="rotate(90,150,150)"/>
+              <rect x="147" y="58" width="6" height="20" rx="2" fill="#0088cc" stroke="#00b4ff" stroke-width="1" transform="rotate(135,150,150)"/>
+              <rect x="147" y="58" width="6" height="20" rx="2" fill="#0088cc" stroke="#00b4ff" stroke-width="1" transform="rotate(180,150,150)"/>
+              <rect x="147" y="58" width="6" height="20" rx="2" fill="#0088cc" stroke="#00b4ff" stroke-width="1" transform="rotate(225,150,150)"/>
+              <rect x="147" y="58" width="6" height="20" rx="2" fill="#0088cc" stroke="#00b4ff" stroke-width="1" transform="rotate(270,150,150)"/>
+              <rect x="147" y="58" width="6" height="20" rx="2" fill="#0088cc" stroke="#00b4ff" stroke-width="1" transform="rotate(315,150,150)"/>
+            </g>
+
+            <!-- Static inner base circle -->
+            <circle cx="150" cy="150" r="75" fill="rgba(0,20,50,0.8)" stroke="#0066aa" stroke-width="1"/>
+
+            <!-- Triangle (main) -->
+            <polygon points="150,72 222,192 78,192" fill="rgba(0,140,255,0.12)" stroke="#00b4ff" stroke-width="2" filter="url(#gf)"/>
+            <!-- Triangle (inverted) -->
+            <polygon points="150,228 78,108 222,108" fill="rgba(0,100,200,0.08)" stroke="#0077cc" stroke-width="1.5" filter="url(#gf)"/>
+
+            <!-- Connecting lines from triangle vertices to center -->
+            <line x1="150" y1="72" x2="150" y2="150" stroke="#00b4ff" stroke-width="0.5" opacity="0.4"/>
+            <line x1="222" y1="192" x2="150" y2="150" stroke="#00b4ff" stroke-width="0.5" opacity="0.4"/>
+            <line x1="78" y1="192" x2="150" y2="150" stroke="#00b4ff" stroke-width="0.5" opacity="0.4"/>
+
+            <!-- Center rings -->
+            <circle cx="150" cy="150" r="35" fill="rgba(0,60,120,0.6)" stroke="#00aaff" stroke-width="2"/>
+            <circle cx="150" cy="150" r="22" fill="rgba(0,100,180,0.5)" stroke="#00ccff" stroke-width="1.5"/>
+
+            <!-- Core glow (big blur) -->
+            <circle cx="150" cy="150" r="30" fill="#0044aa" filter="url(#gf2)" opacity="0.8"/>
+
+            <!-- Center orb -->
+            <circle cx="150" cy="150" r="18" fill="url(#cGrad)" stroke="#44ddff" stroke-width="1.5" filter="url(#gf)"/>
+            <!-- Highlight -->
+            <ellipse cx="145" cy="144" rx="6" ry="4" fill="white" opacity="0.4" transform="rotate(-30,145,144)"/>
+          </svg>
+        </div>
+
+        <div class="reactor-label">ARC REACTOR — ONLINE</div>
+        <div class="reactor-status" id="reactor-status">ALL SYSTEMS NOMINAL</div>
+        <div class="pills-row" id="agent-pills"></div>
+      </div>
     </div>
 
-    <div class="strip" onclick="rotateTicker()" style="cursor:pointer">
-      <div class="slabel">◎ NEWS — KENYA & WORLD</div>
-      <div class="sval" id="news-ticker">Loading headlines...</div>
-    </div>
-
-    <div class="strip">
-      <div class="slabel">AGENT STATUS</div>
-      <div class="statusbar" id="statusbar">
-        <div class="si"><div class="sid ok"></div>WEATHER</div>
-        <div class="si"><div class="sid ok"></div>NEWS</div>
-        <div class="si"><div class="sid ok"></div>FLIGHTS</div>
-        <div class="si"><div class="sid ok"></div>TRAFFIC</div>
-        <div class="si"><div class="sid ok"></div>HOME</div>
-        <div class="si"><div class="sid ok"></div>EMAIL</div>
+    <!-- Chat -->
+    <div class="pn chat-pn">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid rgba(0,80,150,0.2);">
+        <span style="font-size:8px;letter-spacing:3px;color:var(--c);">◉ COMMAND INPUT</span>
+        <div style="display:flex;gap:5px;align-items:center;">
+          <button class="clap-btn" id="clap-btn" onclick="toggleClap()">👏 CLAP</button>
+          <button class="vbtn on" id="vbtn" onclick="toggleVoice()">🔊</button>
+        </div>
+      </div>
+      <div class="wave"><div class="wave-fill" id="wave-fill"></div></div>
+      <div class="msgs" id="msgs">
+        <div class="msg bot"><span class="who">JARVIS »</span> <span class="txt">Good day. Arc Reactor online. All agents active. Click 🎤 or double-clap to speak.</span></div>
+      </div>
+      <div class="chat-row">
+        <input class="cinput" id="cinput" type="text" placeholder="Type command or click 🎤..." autocomplete="off" onkeydown="if(event.key==='Enter')sendMsg()">
+        <button class="mbtn" id="mbtn" onclick="toggleMic()">🎤</button>
+        <button class="sbtn" onclick="sendMsg()">SEND</button>
       </div>
     </div>
 
   </div>
+
+  <!-- RIGHT: Weather + News + Agents -->
+  <div class="right-col">
+
+    <div class="pn clock-pn" style="flex-shrink:0;">
+      <div class="big-time" id="r-clock">00:00:00</div>
+      <div class="big-date" id="r-date">LOADING...</div>
+      <div class="big-loc"><span class="dot-live"></span><span id="r-loc">MOMBASA, KENYA</span></div>
+    </div>
+
+    <div class="pn" style="flex:1.2">
+      <div class="pn-title">◈ WEATHER — MOMBASA</div>
+      <div id="weather-right"><div class="loading">FETCHING...</div></div>
+    </div>
+
+    <div class="pn" style="flex:1.5">
+      <div class="pn-title">◈ NEWS FEED</div>
+      <div id="news-right"><div class="loading">LOADING HEADLINES...</div></div>
+    </div>
+
+    <div class="pn" style="flex:1">
+      <div class="pn-title">◈ AGENT STATUS</div>
+      <div class="agent-list" id="agent-list">
+        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">WEATHER</span><span class="ag-status">ONLINE</span></div>
+        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">NEWS</span><span class="ag-status">ONLINE</span></div>
+        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">FLIGHTS</span><span class="ag-status">ONLINE</span></div>
+        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">TRAFFIC</span><span class="ag-status">ONLINE</span></div>
+        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">SMART HOME</span><span class="ag-status">ONLINE</span></div>
+        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">EMAIL</span><span class="ag-status">ONLINE</span></div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /main -->
+
+<!-- ═══ BOTTOM BAR ═══════════════════════════════════════ -->
+<div class="bottombar">
+  <div>
+    <div class="stark-logo">STARK INDUSTRIES</div>
+    <div style="font-size:7px;letter-spacing:3px;color:var(--dim);margin-top:1px;">AI COMMAND CENTER — AUTHORIZED ACCESS ONLY</div>
+  </div>
+  <div class="bottom-stats">
+    <div class="b-stat">FLIGHTS NEARBY: <span id="b-flights">--</span></div>
+    <div class="b-stat">EMAIL: <span id="b-email">--</span></div>
+    <div class="b-stat">UPTIME: <span id="b-uptime">00:00:00</span></div>
+  </div>
+  <div style="font-size:8px;letter-spacing:2px;color:var(--dim);">v2.0 · JARVIS OS</div>
+</div>
 
 </div><!-- /shell -->
 
 <script>
 // ═══════════════════════════════════════════════════════════
-//  CLOCK
+// CLOCK & DATE
 // ═══════════════════════════════════════════════════════════
+const DAYS = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+let startTime = Date.now();
+
 function tick() {
   const n = new Date();
-  document.getElementById('clock').textContent =
-    [n.getHours(), n.getMinutes(), n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');
+  const t = [n.getHours(),n.getMinutes(),n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');
+  const d = `${DAYS[n.getDay()]} · ${String(n.getDate()).padStart(2,'0')} ${MONTHS[n.getMonth()]} ${n.getFullYear()}`;
+  document.getElementById('clock').textContent = t;
+  document.getElementById('r-clock').textContent = t;
+  document.getElementById('date-str').textContent = d;
+  document.getElementById('r-date').textContent = d;
+  // Uptime
+  const up = Math.floor((Date.now()-startTime)/1000);
+  const uh = Math.floor(up/3600), um = Math.floor((up%3600)/60), us = up%60;
+  document.getElementById('b-uptime').textContent = [uh,um,us].map(x=>String(x).padStart(2,'0')).join(':');
 }
-setInterval(tick, 1000); tick();
+setInterval(tick,1000); tick();
 
 // ═══════════════════════════════════════════════════════════
-//  SPEAKER OUTPUT (Text-to-Speech)
+// LIVE GRAPHS (Canvas)
 // ═══════════════════════════════════════════════════════════
-let voiceOn = true;
-const synth = window.speechSynthesis;
-let ttsVoice = null;
+const cpuHistory = Array(60).fill(0);
+const ramHistory = Array(60).fill(0);
 
-function loadVoice() {
-  const vs = synth.getVoices();
-  ttsVoice = vs.find(v=>v.lang.startsWith('en-')&&v.name.toLowerCase().includes('google')) ||
-             vs.find(v=>v.lang.startsWith('en-')) || vs[0];
+function drawGraph(canvas, data, color) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(0,80,150,0.2)'; ctx.lineWidth=1;
+  for(let y=0;y<H;y+=H/4){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  if(data.every(v=>v===0)) return;
+  // Fill
+  ctx.beginPath();
+  const step = W/(data.length-1);
+  data.forEach((v,i)=>{
+    const x=i*step, y=H-(v/100*H);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath();
+  ctx.fillStyle=color.replace(')',',0.15)').replace('rgb','rgba');
+  ctx.fill();
+  // Line
+  ctx.beginPath();
+  data.forEach((v,i)=>{
+    const x=i*step, y=H-(v/100*H);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.stroke();
+  // Latest dot
+  const lx=(data.length-1)*step, ly=H-(data[data.length-1]/100*H);
+  ctx.beginPath(); ctx.arc(lx,ly,3,0,Math.PI*2);
+  ctx.fillStyle=color; ctx.fill();
 }
-if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = loadVoice;
-setTimeout(loadVoice, 500);
 
-function speak(text) {
-  if (!voiceOn || !synth) return;
+// ═══════════════════════════════════════════════════════════
+// SYSTEM STATS
+// ═══════════════════════════════════════════════════════════
+async function fetchSystem() {
+  try {
+    const d = await fetch('/api/system').then(r=>r.json());
+    const cpu = d.cpu_percent||0, ram = d.ram_percent||0;
+    cpuHistory.push(cpu); cpuHistory.shift();
+    ramHistory.push(ram); ramHistory.shift();
+
+    const cpuC = document.getElementById('cpu-graph');
+    const ramC = document.getElementById('ram-graph');
+    // Set actual pixel dimensions to match CSS
+    cpuC.width = cpuC.offsetWidth||180;
+    ramC.width = ramC.offsetWidth||180;
+    drawGraph(cpuC, cpuHistory, 'rgb(0,180,255)');
+    drawGraph(ramC, ramHistory, 'rgb(0,200,150)');
+
+    document.getElementById('cpu-val').textContent = cpu.toFixed(1)+'%';
+    document.getElementById('ram-val').textContent = ram.toFixed(1)+'%';
+    document.getElementById('ram-used').textContent = (d.ram_used_gb||0)+'GB';
+    document.getElementById('ram-total').textContent = (d.ram_total_gb||0)+'GB';
+    document.getElementById('t-cpu').textContent = cpu.toFixed(0)+'%';
+    document.getElementById('t-ram').textContent = ram.toFixed(0)+'%';
+    document.getElementById('t-disk').textContent = (d.disk_percent||0)+'%';
+    document.getElementById('t-up').textContent = (d.net_sent_mb||0)+'M';
+    document.getElementById('t-dn').textContent = (d.net_recv_mb||0)+'M';
+    document.getElementById('bar-cpu').style.width = cpu+'%';
+    document.getElementById('bv-cpu').textContent = cpu.toFixed(0)+'%';
+    document.getElementById('bar-ram').style.width = ram+'%';
+    document.getElementById('bv-ram').textContent = ram.toFixed(0)+'%';
+    document.getElementById('bar-disk').style.width = (d.disk_percent||0)+'%';
+    document.getElementById('bv-disk').textContent = (d.disk_percent||0)+'%';
+    document.getElementById('net-sent').textContent = (d.net_sent_mb||0)+' MB';
+    document.getElementById('net-recv').textContent = (d.net_recv_mb||0)+' MB';
+    document.getElementById('disk-free').textContent = (d.disk_free_gb||0)+' GB';
+  } catch(e) {}
+}
+setInterval(fetchSystem, 2000); fetchSystem();
+
+// ═══════════════════════════════════════════════════════════
+// SPEAKER (TTS)
+// ═══════════════════════════════════════════════════════════
+let voiceOn=true;
+const synth=window.speechSynthesis;
+let ttsVoice=null;
+function loadVoice(){const vs=synth.getVoices();ttsVoice=vs.find(v=>v.lang.startsWith('en-')&&v.name.toLowerCase().includes('google'))||vs.find(v=>v.lang.startsWith('en-'))||vs[0];}
+if(synth.onvoiceschanged!==undefined)synth.onvoiceschanged=loadVoice;
+setTimeout(loadVoice,500);
+function speak(text){
+  if(!voiceOn||!synth)return;
   synth.cancel();
-  const clean = text.replace(/[*_`#\-=>|]+/g,' ').replace(/\s+/g,' ').trim();
-  if (!clean) return;
-  const u = new SpeechSynthesisUtterance(clean);
-  if (ttsVoice) u.voice = ttsVoice;
-  u.rate = 0.92; u.pitch = 0.85; u.volume = 1;
+  const clean=text.replace(/[*_`#\-=>|]+/g,' ').replace(/\s+/g,' ').trim();
+  if(!clean)return;
+  const u=new SpeechSynthesisUtterance(clean);
+  if(ttsVoice)u.voice=ttsVoice;
+  u.rate=0.92;u.pitch=0.85;u.volume=1;
   synth.speak(u);
 }
-
-function toggleVoice() {
-  voiceOn = !voiceOn;
-  const b = document.getElementById('vbtn');
-  b.textContent = voiceOn ? '🔊' : '🔇';
-  b.classList.toggle('on', voiceOn);
-  if (!voiceOn) synth.cancel();
+function toggleVoice(){
+  voiceOn=!voiceOn;
+  const b=document.getElementById('vbtn');
+  b.textContent=voiceOn?'🔊':'🔇';
+  b.classList.toggle('on',voiceOn);
+  if(!voiceOn)synth.cancel();
 }
 
 // ═══════════════════════════════════════════════════════════
-//  VOICE INPUT (Speech Recognition — Chrome/Edge built-in)
+// VOICE INPUT
 // ═══════════════════════════════════════════════════════════
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recognition = null;
-let micActive = false;
-
-if (SR) {
-  recognition = new SR();
-  recognition.continuous = false;
-  recognition.interimResults = true;
-  recognition.lang = 'en-US';
-  recognition.maxAlternatives = 1;
-
-  recognition.onstart = () => {
-    micActive = true;
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let recognition=null, micActive=false;
+if(SR){
+  recognition=new SR();
+  recognition.continuous=false; recognition.interimResults=true; recognition.lang='en-US';
+  recognition.onstart=()=>{
+    micActive=true;
     document.getElementById('mbtn').classList.add('on');
     document.getElementById('core-wrap').classList.add('listening');
-    document.getElementById('thinking-ind').textContent = 'LISTENING...';
-    document.getElementById('cinput').placeholder = '🎤 Listening...';
+    document.getElementById('reactor-status').textContent='LISTENING...';
+    document.getElementById('thinking-ind').textContent='LISTENING...';
+    document.getElementById('cinput').placeholder='🎤 Listening...';
   };
-
-  recognition.onend = () => {
-    micActive = false;
+  recognition.onend=()=>{
+    micActive=false;
     document.getElementById('mbtn').classList.remove('on');
     document.getElementById('core-wrap').classList.remove('listening');
-    document.getElementById('thinking-ind').textContent = 'STANDBY';
-    document.getElementById('cinput').placeholder = 'Type or click 🎤 to speak...';
+    document.getElementById('reactor-status').textContent='ALL SYSTEMS NOMINAL';
+    document.getElementById('thinking-ind').textContent='STANDBY';
+    document.getElementById('cinput').placeholder='Type command or click 🎤...';
   };
-
-  recognition.onresult = (e) => {
-    const transcript = Array.from(e.results).map(r=>r[0].transcript).join('');
-    document.getElementById('cinput').value = transcript;
-    if (e.results[e.results.length-1].isFinal) {
-      setTimeout(sendMsg, 150);
-    }
+  recognition.onresult=(e)=>{
+    const t=Array.from(e.results).map(r=>r[0].transcript).join('');
+    document.getElementById('cinput').value=t;
+    if(e.results[e.results.length-1].isFinal)setTimeout(sendMsg,150);
   };
-
-  recognition.onerror = (e) => {
-    if (e.error !== 'no-speech') addMsg('bot', `[MIC] ${e.error}`);
-    micActive = false;
+  recognition.onerror=(e)=>{
+    if(e.error!=='no-speech')addMsg('bot','[MIC] '+e.error);
+    micActive=false;
     document.getElementById('mbtn').classList.remove('on');
-    document.getElementById('core-wrap').classList.remove('listening');
-    document.getElementById('thinking-ind').textContent = 'STANDBY';
+    document.getElementById('reactor-status').textContent='ALL SYSTEMS NOMINAL';
   };
 }
-
-function toggleMic() {
-  if (!recognition) { addMsg('bot','Voice input requires Chrome or Edge browser.'); return; }
-  if (micActive) { recognition.stop(); }
-  else { try { recognition.start(); } catch(e) {} }
-}
-
-function activateMic() {
-  if (!recognition || micActive) return;
-  try { recognition.start(); } catch(e) {}
-}
+function toggleMic(){if(!recognition){addMsg('bot','Voice input needs Chrome or Edge.');return;}if(micActive)recognition.stop();else try{recognition.start();}catch(e){}}
+function activateMic(){if(!recognition||micActive)return;try{recognition.start();}catch(e){}}
 
 // ═══════════════════════════════════════════════════════════
-//  CLAP DETECTION (Web Audio API — double-clap activates mic)
+// CLAP DETECTION
 // ═══════════════════════════════════════════════════════════
-let clapEnabled = false;
-let audioCtx = null;
-let analyser = null;
-let clapAnimId = null;
-let lastClapTime = 0;
-let clapCount = 0;
-const CLAP_THRESHOLD = 55;    // amplitude 0-128 — raise if too sensitive
-const CLAP_WINDOW_MS = 700;   // max ms between two claps for a double-clap
+let clapEnabled=false,audioCtx=null,analyser=null,clapRaf=null,lastClap=0,clapCooldown=false;
+const CLAP_THRESH=55, CLAP_WIN=700;
 
-function toggleClap() {
-  if (clapEnabled) {
-    stopClapDetection();
-  } else {
-    startClapDetection();
-  }
-}
-
-async function startClapDetection() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({audio: true, video: false});
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const src = audioCtx.createMediaStreamSource(stream);
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.3;
+function toggleClap(){clapEnabled?stopClap():startClap();}
+async function startClap(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const src=audioCtx.createMediaStreamSource(stream);
+    analyser=audioCtx.createAnalyser();
+    analyser.fftSize=256; analyser.smoothingTimeConstant=0.3;
     src.connect(analyser);
-    clapEnabled = true;
-    updateClapIndicator(true);
+    clapEnabled=true;
+    const b=document.getElementById('clap-btn');
+    b.classList.add('on'); b.textContent='👏 ON';
     detectClap();
-    addMsg('bot', 'Clap detection active. Double-clap to activate microphone.');
-  } catch(e) {
-    addMsg('bot', 'Microphone access denied. Allow mic permission and try again.');
-  }
+    addMsg('bot','Clap detection active. Double-clap to activate your microphone.');
+  }catch(e){addMsg('bot','Mic access denied. Please allow microphone permission.');}
 }
-
-function stopClapDetection() {
-  clapEnabled = false;
-  if (clapAnimId) cancelAnimationFrame(clapAnimId);
-  if (audioCtx) { audioCtx.close(); audioCtx = null; }
-  updateClapIndicator(false);
-  document.getElementById('wave-fill').style.width = '0%';
+function stopClap(){
+  clapEnabled=false;
+  if(clapRaf)cancelAnimationFrame(clapRaf);
+  if(audioCtx){audioCtx.close();audioCtx=null;}
+  const b=document.getElementById('clap-btn');
+  b.classList.remove('on'); b.textContent='👏 CLAP';
+  document.getElementById('wave-fill').style.width='0%';
 }
-
-function updateClapIndicator(on) {
-  const el = document.getElementById('clap-ind');
-  el.className = 'clap-ind ' + (on ? 'on' : 'off');
-  el.title = on ? 'Clap detection ON — click to disable' : 'Click to enable double-clap activation';
-}
-
-let clapCooldown = false;
-
-function detectClap() {
-  if (!clapEnabled) return;
-  const data = new Uint8Array(analyser.frequencyBinCount);
+function detectClap(){
+  if(!clapEnabled)return;
+  const data=new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteTimeDomainData(data);
-
-  // Compute peak amplitude deviation from 128 (silence)
-  let peak = 0;
-  for (let i = 0; i < data.length; i++) {
-    const v = Math.abs(data[i] - 128);
-    if (v > peak) peak = v;
-  }
-
-  // Drive the wave bar (normalise 0-128 → 0-100%)
-  document.getElementById('wave-fill').style.width = Math.min(peak / 128 * 100 * 2, 100) + '%';
-
-  if (peak > CLAP_THRESHOLD && !clapCooldown) {
-    clapCooldown = true;
-    setTimeout(() => { clapCooldown = false; }, 120); // debounce
-
-    const now = Date.now();
-    if (now - lastClapTime < CLAP_WINDOW_MS) {
-      // ── DOUBLE CLAP DETECTED ──
-      clapCount = 0;
-      lastClapTime = 0;
+  let peak=0;
+  for(let i=0;i<data.length;i++){const v=Math.abs(data[i]-128);if(v>peak)peak=v;}
+  document.getElementById('wave-fill').style.width=Math.min(peak/128*200,100)+'%';
+  if(peak>CLAP_THRESH&&!clapCooldown){
+    clapCooldown=true; setTimeout(()=>{clapCooldown=false;},120);
+    const now=Date.now();
+    if(now-lastClap<CLAP_WIN&&now-lastClap>80){
+      lastClap=0;
       activateMic();
-      // Flash the orb green briefly
-      const orb = document.getElementById('jarvis-orb');
-      orb.style.boxShadow = '0 0 60px rgba(0,255,136,1), 0 0 120px rgba(0,255,136,.6)';
-      setTimeout(() => { orb.style.boxShadow = ''; }, 600);
-    } else {
-      lastClapTime = now;
-    }
+      // Flash reactor orb
+      const orb=document.querySelector('#ring-outer');
+      orb.style.stroke='#00ff88';
+      setTimeout(()=>{orb.style.stroke='';},600);
+    } else { lastClap=now; }
   }
-
-  clapAnimId = requestAnimationFrame(detectClap);
+  clapRaf=requestAnimationFrame(detectClap);
 }
 
 // ═══════════════════════════════════════════════════════════
-//  WEBSOCKET CHAT
+// WEBSOCKET CHAT
 // ═══════════════════════════════════════════════════════════
-let ws = null;
-let wsReady = false;
-
-function connectWS() {
-  try {
-    ws = new WebSocket(`ws://${location.host}/ws/chat`);
-    ws.onopen  = () => { wsReady = true; };
-    ws.onclose = () => { wsReady = false; setTimeout(connectWS, 2000); };
-    ws.onerror = () => { wsReady = false; };
-  } catch(e) { setTimeout(connectWS, 3000); }
+let ws=null,wsReady=false;
+function connectWS(){
+  try{
+    ws=new WebSocket(`ws://${location.host}/ws/chat`);
+    ws.onopen=()=>{wsReady=true;};
+    ws.onclose=()=>{wsReady=false;setTimeout(connectWS,2000);};
+    ws.onerror=()=>{wsReady=false;};
+  }catch(e){setTimeout(connectWS,3000);}
 }
 connectWS();
 
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-function addMsg(role, text) {
-  const box = document.getElementById('msgs');
-  const d = document.createElement('div');
-  d.className = `msg ${role}`;
-  const who = role==='user' ? 'YOU »' : 'JARVIS »';
-  d.innerHTML = `<span class="who">${who}</span> <span class="txt">${esc(text)}</span>`;
-  box.appendChild(d);
-  box.scrollTop = box.scrollHeight;
+function addMsg(role,text){
+  const box=document.getElementById('msgs');
+  const d=document.createElement('div');
+  d.className='msg '+role;
+  const who=role==='user'?'YOU »':'JARVIS »';
+  d.innerHTML=`<span class="who">${who}</span> <span class="txt">${esc(text)}</span>`;
+  box.appendChild(d); box.scrollTop=box.scrollHeight;
   return d;
 }
 
-function setThinking(on) {
-  document.getElementById('core-wrap').classList.toggle('thinking', on);
-  if (!micActive) document.getElementById('thinking-ind').textContent = on ? 'PROCESSING...' : 'STANDBY';
+function setThinking(on){
+  document.getElementById('core-wrap').classList.toggle('thinking',on);
+  if(!micActive){
+    document.getElementById('thinking-ind').textContent=on?'PROCESSING...':'STANDBY';
+    document.getElementById('reactor-status').textContent=on?'PROCESSING REQUEST...':'ALL SYSTEMS NOMINAL';
+  }
 }
 
-function focusChat() { document.getElementById('cinput').focus(); }
-
-function sendMsg() {
-  const inp = document.getElementById('cinput');
-  const txt = inp.value.trim();
-  if (!txt) return;
-  inp.value = '';
-  addMsg('user', txt);
+function sendMsg(){
+  const inp=document.getElementById('cinput');
+  const txt=inp.value.trim();
+  if(!txt)return;
+  inp.value='';
+  addMsg('user',txt);
   setThinking(true);
-
-  if (wsReady) {
-    let div = null, full = '';
-    ws.send(JSON.stringify({message: txt}));
-    ws.onmessage = e => {
-      const d = JSON.parse(e.data);
-      if (d.type === 'chunk') {
-        full += d.text;
-        if (!div) div = addMsg('bot','');
-        div.querySelector('.txt').textContent = full;
-        document.getElementById('msgs').scrollTop = 9999;
-      } else if (d.type === 'done') {
-        setThinking(false);
-        speak(full);
-        ws.onmessage = null;
-      } else if (d.type === 'error') {
-        setThinking(false);
-        addMsg('bot', '[ERROR] ' + d.message);
-        ws.onmessage = null;
+  if(wsReady){
+    let div=null,full='';
+    ws.send(JSON.stringify({message:txt}));
+    ws.onmessage=e=>{
+      const d=JSON.parse(e.data);
+      if(d.type==='chunk'){
+        full+=d.text;
+        if(!div)div=addMsg('bot','');
+        div.querySelector('.txt').textContent=full;
+        document.getElementById('msgs').scrollTop=9999;
+      }else if(d.type==='done'){
+        setThinking(false); speak(full); ws.onmessage=null;
+      }else if(d.type==='error'){
+        setThinking(false); addMsg('bot','[ERROR] '+d.message); ws.onmessage=null;
       }
     };
-  } else {
+  }else{
     fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:txt})})
       .then(r=>r.json())
-      .then(d=>{ setThinking(false); const r=d.response||d.error||'No response'; addMsg('bot',r); speak(r); })
-      .catch(()=>{ setThinking(false); addMsg('bot','Connection error.'); });
+      .then(d=>{setThinking(false);const r=d.response||d.error||'No response';addMsg('bot',r);speak(r);})
+      .catch(()=>{setThinking(false);addMsg('bot','Connection error.');});
   }
 }
 
 // ═══════════════════════════════════════════════════════════
-//  AGENT DATA FETCHERS
+// AGENT DATA
 // ═══════════════════════════════════════════════════════════
-function row(label, val, cls='') {
-  return `<div class="drow"><span class="dlabel">${label}</span><span class="dval ${cls}">${esc(val)}</span></div>`;
+async function fetchWeather(){
+  try{
+    const d=await fetch('/api/weather').then(r=>r.json());
+    const el=document.getElementById('weather-right');
+    el.innerHTML=`
+      <div class="weather-big">${d.temp||'--'}</div>
+      <div class="weather-desc">${(d.description||'').toUpperCase()}</div>
+      <div style="margin-top:6px;">
+        <div class="w-row"><span class="w-lbl">FEELS LIKE</span><span class="w-val">${d.feels_like||'--'}</span></div>
+        <div class="w-row"><span class="w-lbl">HUMIDITY</span><span class="w-val">${d.humidity||'--'}</span></div>
+        <div class="w-row"><span class="w-lbl">WIND</span><span class="w-val">${d.wind_speed||'--'}</span></div>
+        <div class="w-row"><span class="w-lbl">VISIBILITY</span><span class="w-val">${d.visibility_km?d.visibility_km+' km':'--'}</span></div>
+      </div>`;
+  }catch(e){document.getElementById('weather-right').innerHTML='<div class="loading">ERROR</div>';}
 }
 
-function setStatus(agent, ok) {
-  const bar = document.getElementById('statusbar');
-  const items = bar.querySelectorAll('.si');
-  const names = ['WEATHER','NEWS','FLIGHTS','TRAFFIC','HOME','EMAIL'];
-  const idx = names.indexOf(agent.toUpperCase());
-  if (idx >= 0) {
-    const dot = items[idx].querySelector('.sid');
-    dot.className = 'sid ' + (ok ? 'ok' : 'err');
-  }
+let newsItems=[],newsIdx=0;
+async function fetchNews(){
+  try{
+    const d=await fetch('/api/news').then(r=>r.json());
+    newsItems=(d.articles||[]).map(a=>a.title).filter(Boolean);
+    const el=document.getElementById('news-right');
+    el.innerHTML=newsItems.slice(0,5).map((t,i)=>
+      `<div class="news-item" onclick="askJarvis('Tell me about: ${esc(t.substring(0,60))}')">
+        <span class="news-num">${i+1}.</span>${esc(t.substring(0,90))}</div>`
+    ).join('');
+  }catch(e){}
 }
 
-async function fetchWeather() {
-  const el = document.getElementById('weather-content');
-  el.innerHTML = '<div class="loading">FETCHING...</div>';
-  try {
-    const d = await fetch('/api/weather').then(r=>r.json());
-    const temp = d.temp || '—';
-    document.getElementById('weather-top').textContent = temp;
-    el.innerHTML =
-      (d.note ? `<div class="note">${d.note}</div>` : '') +
-      row('TEMP', temp, String(temp).includes('3')&&parseInt(temp)>30?'hot':'ok') +
-      row('FEELS LIKE', d.feels_like||'—') +
-      row('HUMIDITY', d.humidity||'—') +
-      row('WIND SPEED', d.wind_speed||'—') +
-      row('CONDITIONS', d.description||'—') +
-      row('VISIBILITY', d.visibility_km ? d.visibility_km+'km' : '—');
-    setStatus('weather', !d.error);
-  } catch(e) {
-    el.innerHTML = '<div class="dval error">CONNECTION ERROR</div>';
-    setStatus('weather', false);
-  }
-}
-
-async function fetchHome() {
-  const el = document.getElementById('home-content');
-  el.innerHTML = '<div class="loading">CONNECTING...</div>';
-  try {
-    const d = await fetch('/api/home').then(r=>r.json());
-    const devs = d.devices || [];
-    el.innerHTML = (d.note ? `<div class="note">${d.note}</div>` : '') +
-      devs.slice(0,7).map(dev => {
-        const on = ['on','cool','heat','home'].includes(dev.state);
-        const icon = dev.entity_id.startsWith('light')?'💡':dev.entity_id.startsWith('climate')?'❄':dev.entity_id.startsWith('sensor')?'📡':'⚡';
-        return row(icon+' '+(dev.friendly_name||dev.entity_id).slice(0,20).toUpperCase(), dev.state.toUpperCase(), on?'ok':'');
-      }).join('') || '<div class="note">NO DEVICES FOUND</div>';
-    setStatus('home', true);
-  } catch(e) {
-    el.innerHTML = '<div class="dval error">CONNECTION ERROR</div>';
-    setStatus('home', false);
-  }
-}
-
-async function fetchFlights() {
-  const el = document.getElementById('flights-content');
-  el.innerHTML = '<div class="loading">SCANNING AIRSPACE...</div>';
-  try {
-    const d = await fetch('/api/flights').then(r=>r.json());
-    const fl = d.flights || [];
-    if (!fl.length) {
-      el.innerHTML = '<div class="note">NO AIRCRAFT IN RANGE</div>';
-    } else {
-      el.innerHTML = (d.note ? `<div class="note">${d.note}</div>` : '') +
-        fl.slice(0,6).map(f =>
-          `<div class="drow">
-            <span class="dlabel">✈ ${esc(f.callsign||'UNKN')}</span>
-            <span class="dval" style="font-size:9px">${f.altitude_m||0}m &nbsp; ${f.distance_km||0}km</span>
-          </div>`
-        ).join('');
+async function fetchTraffic(){
+  try{
+    const d=await fetch('/api/traffic').then(r=>r.json());
+    const el=document.getElementById('traffic-mini');
+    let html='';
+    if(d.overall_congestion){
+      const lvl=d.overall_congestion.toLowerCase();
+      const cl=lvl.includes('heavy')?'color:var(--red)':lvl.includes('moderate')?'color:var(--yellow)':'color:var(--green)';
+      html+=`<div class="net-row"><span class="net-lbl">OVERALL</span><span style="font-size:9px;${cl}">${d.overall_congestion.toUpperCase()}</span></div>`;
     }
-    setStatus('flights', true);
-  } catch(e) {
-    el.innerHTML = '<div class="dval error">CONNECTION ERROR</div>';
-    setStatus('flights', false);
-  }
+    if(d.incidents){d.incidents.slice(0,3).forEach(i=>{html+=`<div class="net-row"><span class="net-lbl" style="max-width:80px;overflow:hidden;">${esc(i.road||'ROAD').substring(0,14)}</span><span class="net-val up">+${i.delay_min}min</span></div>`;});}
+    el.innerHTML=html||'<div class="loading">NO DATA</div>';
+  }catch(e){}
 }
 
-async function fetchTraffic() {
-  const el = document.getElementById('traffic-content');
-  el.innerHTML = '<div class="loading">CHECKING TRAFFIC...</div>';
-  try {
-    const d = await fetch('/api/traffic').then(r=>r.json());
-    let html = d.note ? `<div class="note">${d.note}</div>` : '';
-    if (d.overall_congestion) {
-      const lvl = d.overall_congestion.toLowerCase();
-      const cls = lvl.includes('heavy')?'hot':lvl.includes('moderate')?'warn':'ok';
-      html += row('CONGESTION', d.overall_congestion.toUpperCase(), cls);
-    }
-    if (d.incidents) {
-      d.incidents.slice(0,3).forEach(i => { html += row(esc(i.road||'ROAD'), '+'+i.delay_min+' MIN', 'warn'); });
-    }
-    if (d.flow_summary) html += `<div class="note" style="margin-top:4px;">${esc(d.flow_summary)}</div>`;
-    if (d.current_speed_kmh) {
-      html += row('SPEED NOW', d.current_speed_kmh+' km/h');
-      html += row('FREE FLOW', (d.free_flow_speed_kmh||0)+' km/h');
-    }
-    el.innerHTML = html || '<div class="note">NO DATA</div>';
-    setStatus('traffic', !d.error);
-  } catch(e) {
-    el.innerHTML = '<div class="dval error">CONNECTION ERROR</div>';
-    setStatus('traffic', false);
-  }
+async function fetchFlights(){
+  try{
+    const d=await fetch('/api/flights').then(r=>r.json());
+    document.getElementById('b-flights').textContent=(d.count||d.flights?.length||0)+' IN RANGE';
+  }catch(e){}
 }
 
-async function fetchEmail() {
-  try {
-    const d = await fetch('/api/email').then(r=>r.json());
-    const strip = document.getElementById('email-strip');
-    const emails = d.emails || [];
-    if (emails.length) {
-      strip.textContent = `${d.count||emails.length} msgs — ${emails[0].subject} · ${(emails[0].from||'').split('<')[0].trim()}`;
-    } else {
-      strip.textContent = d.note || 'Inbox empty';
-    }
-    setStatus('email', !d.error);
-  } catch(e) {
-    document.getElementById('email-strip').textContent = 'Email unavailable';
-    setStatus('email', false);
-  }
+async function fetchEmail(){
+  try{
+    const d=await fetch('/api/email').then(r=>r.json());
+    document.getElementById('b-email').textContent=(d.count||0)+' UNREAD';
+  }catch(e){}
 }
 
-let newsItems = [], newsIdx = 0;
-async function fetchNews() {
-  try {
-    const d = await fetch('/api/news').then(r=>r.json());
-    newsItems = (d.articles||[]).map(a=>a.title).filter(Boolean);
-    if (!newsItems.length) newsItems = [d.note||'No news'];
-    setStatus('news', true);
-    rotateTicker();
-  } catch(e) {
-    newsItems = ['News feed unavailable'];
-    setStatus('news', false);
-  }
+async function fetchStatus(){
+  try{
+    const d=await fetch('/api/status').then(r=>r.json());
+    const names=d.agents||[];
+    document.getElementById('t-agents').textContent=names.length;
+    if(d.location?.city)document.getElementById('r-loc').textContent=(d.location.city+', '+(d.location.country||'')).toUpperCase();
+    // Pills
+    const pills=document.getElementById('agent-pills');
+    pills.innerHTML=names.map(n=>`<div class="pill on">${n.toUpperCase()}</div>`).join('');
+    // Agent list
+    const list=document.getElementById('agent-list');
+    list.innerHTML=names.map(n=>`<div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">${n.toUpperCase()}</span><span class="ag-status">ONLINE</span></div>`).join('');
+  }catch(e){}
 }
 
-function rotateTicker() {
-  if (!newsItems.length) return;
-  const el = document.getElementById('news-ticker');
-  el.style.transition = 'opacity .35s';
-  el.style.opacity = '0';
-  setTimeout(()=>{
-    el.textContent = newsItems[newsIdx++ % newsItems.length];
-    el.style.opacity = '1';
-  }, 350);
-}
-
-async function fetchStatus() {
-  try {
-    const d = await fetch('/api/status').then(r=>r.json());
-    const names = d.agents || [];
-    document.getElementById('agent-count').textContent = names.length + ' AGENTS';
-    const loc = d.location || {};
-    if (loc.city) document.getElementById('loc-display').textContent = (loc.city+', '+(loc.country||'')).toUpperCase();
-
-    const pills = document.getElementById('agent-pills');
-    pills.innerHTML = names.map(n=>`<div class="pill on">${n.toUpperCase()}</div>`).join('');
-  } catch(e) {}
-}
+function askJarvis(q){document.getElementById('cinput').value=q;sendMsg();}
 
 // ═══════════════════════════════════════════════════════════
-//  INIT & AUTO-REFRESH
+// INIT
 // ═══════════════════════════════════════════════════════════
-fetchStatus();
-fetchWeather();
-fetchFlights();
-fetchHome();
-fetchTraffic();
-fetchEmail();
-fetchNews();
-
-setInterval(rotateTicker, 9000);
-setInterval(()=>{ fetchWeather(); fetchFlights(); fetchTraffic(); }, 60000);
-setInterval(()=>{ fetchHome(); fetchEmail(); }, 120000);
-setInterval(fetchNews, 300000);
+fetchStatus(); fetchWeather(); fetchNews(); fetchTraffic(); fetchFlights(); fetchEmail();
+setInterval(fetchWeather,60000); setInterval(fetchTraffic,60000);
+setInterval(fetchNews,300000); setInterval(fetchFlights,90000);
+setInterval(fetchEmail,120000);
 </script>
 </body>
 </html>

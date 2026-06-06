@@ -16,12 +16,26 @@ import base64
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import requests
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
 from jarvis.agents.base_agent import BaseAgent
+
+_NAMES_FILE = Path.home() / ".sahil_camera_names.json"
+
+def _load_saved_names() -> dict[int, str]:
+    try:
+        return {int(k): v for k, v in json.loads(_NAMES_FILE.read_text()).items()}
+    except Exception:
+        return {}
+
+def _save_name(channel: int, name: str) -> None:
+    names = _load_saved_names()
+    names[channel] = name
+    _NAMES_FILE.write_text(json.dumps({str(k): v for k, v in names.items()}))
 
 
 class CameraAgent(BaseAgent):
@@ -51,6 +65,10 @@ class CameraAgent(BaseAgent):
         num = int(cfg.get("num_channels", max(self._named.keys(), default=4)))
         for i in range(1, num + 1):
             self._named.setdefault(i, f"Channel {i}")
+
+        # User-saved names override config names
+        for ch, nm in _load_saved_names().items():
+            self._named[ch] = nm
 
     # ── Tools ────────────────────────────────────────────────────────────────
 
@@ -97,6 +115,28 @@ class CameraAgent(BaseAgent):
                 },
             },
             {
+                "name": "rename_camera",
+                "description": (
+                    "Assigns a custom name to a camera channel and saves it permanently. "
+                    "Use when the user says things like 'channel 2 is the front gate' or "
+                    "'call camera 5 Parking'."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "integer",
+                            "description": "The channel number to rename",
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "The new human-friendly name for this camera",
+                        },
+                    },
+                    "required": ["channel", "name"],
+                },
+            },
+            {
                 "name": "get_rtsp_url",
                 "description": "Returns the RTSP stream URL for VLC or other players.",
                 "input_schema": {
@@ -113,10 +153,11 @@ class CameraAgent(BaseAgent):
     # ── Dispatch ─────────────────────────────────────────────────────────────
 
     def handle(self, tool_name: str, tool_input: dict[str, Any]) -> str:
-        if tool_name == "list_cameras":  return self._list()
-        if tool_name == "show_camera":   return self._show(tool_input)
+        if tool_name == "list_cameras":   return self._list()
+        if tool_name == "show_camera":    return self._show(tool_input)
         if tool_name == "analyze_camera": return self._analyze(tool_input)
-        if tool_name == "get_rtsp_url":  return self._rtsp(tool_input)
+        if tool_name == "get_rtsp_url":   return self._rtsp(tool_input)
+        if tool_name == "rename_camera":  return self._rename(tool_input)
         return f"Unknown tool: {tool_name}"
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -265,4 +306,18 @@ class CameraAgent(BaseAgent):
             "channel":  ch,
             "rtsp_url": f"rtsp://{self._user}:{self._pwd}@{self._ip}:554/Streaming/Channels/{ch}{stream}",
             "tip":      "Open VLC → Media → Open Network Stream → paste URL",
+        })
+
+    def _rename(self, inp: dict) -> str:
+        ch = int(inp["channel"])
+        name = inp["name"].strip()
+        old_name = self._named.get(ch, f"Channel {ch}")
+        self._named[ch] = name
+        _save_name(ch, name)
+        return json.dumps({
+            "action":    "camera_renamed",
+            "channel":   ch,
+            "old_name":  old_name,
+            "new_name":  name,
+            "message":   f"Channel {ch} is now saved as '{name}'.",
         })

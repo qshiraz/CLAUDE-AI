@@ -383,7 +383,14 @@ async def chat_ws(ws: WebSocket):
                 continue
             try:
                 async for chunk in orchestrator.chat(message):
-                    await ws.send_json({"type": "chunk", "text": chunk})
+                    if chunk.startswith('\x00ACTION:') and chunk.endswith('\x00'):
+                        try:
+                            action = json.loads(chunk[8:-1])
+                            await ws.send_json({"type": "action", **action})
+                        except Exception:
+                            pass
+                    else:
+                        await ws.send_json({"type": "chunk", "text": chunk})
                 await ws.send_json({"type": "done"})
             except Exception as exc:
                 await ws.send_json({"type": "error", "message": str(exc)})

@@ -159,8 +159,18 @@ class JarvisOrchestrator:
                     result = await asyncio.to_thread(self.registry.dispatch, tc["name"], tc["input"])
                 return {"type": "tool_result", "tool_use_id": tc["id"], "content": result}
 
-            tool_results = await asyncio.gather(*[_run_tool(tc) for tc in tool_calls])
-            self.history.append({"role": "user", "content": list(tool_results)})
+            tool_results = list(await asyncio.gather(*[_run_tool(tc) for tc in tool_calls]))
+
+            # Emit UI action events for any tool results that carry an action
+            for tr in tool_results:
+                try:
+                    obj = json.loads(tr["content"])
+                    if isinstance(obj, dict) and "action" in obj:
+                        yield f'\x00ACTION:{tr["content"]}\x00'
+                except Exception:
+                    pass
+
+            self.history.append({"role": "user", "content": tool_results})
 
     @staticmethod
     def _build_assistant_content(

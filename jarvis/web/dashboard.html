@@ -792,19 +792,16 @@ function sendMsg(){
         if(!div)div=addMsg('bot','');
         div.querySelector('.txt').textContent=full;
         document.getElementById('msgs').scrollTop=9999;
+      }else if(d.type==='action'){
+        // Immediate UI action from tool result — no need to wait for done
+        if(d.action==='show_feed' && d.channel){
+          switchCamera(d.channel, d.camera_name || d.name || `CAM ${d.channel}`);
+        }
+        if(d.action==='camera_renamed'){
+          loadCameraList(); // Refresh sidebar with new name
+        }
       }else if(d.type==='done'){
-        setThinking(false); speak(full);
-        // Check if Jarvis response contains a JSON action block
-        try {
-          const jMatch = full.match(/\{[^{}]*"action"\s*:\s*"show_feed"[^{}]*\}/);
-          if (jMatch) {
-            const act = JSON.parse(jMatch[0]);
-            if (act.action === 'show_feed' && act.channel) {
-              switchCamera(act.channel, act.name || `CAM ${act.channel}`);
-            }
-          }
-        } catch(_) {}
-        ws.onmessage=null;
+        setThinking(false); speak(full); ws.onmessage=null;
       }else if(d.type==='error'){
         setThinking(false); addMsg('bot','[ERROR] '+d.message); ws.onmessage=null;
       }

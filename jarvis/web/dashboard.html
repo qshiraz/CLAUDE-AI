@@ -436,6 +436,14 @@ canvas.graph{width:100%;height:60px;display:block;}
       </div>
     </div>
 
+    <!-- World Cup -->
+    <div class="pn" id="worldcup-pn" style="flex-shrink:0;max-height:140px;overflow:hidden;">
+      <div class="pn-title">◈ FIFA WORLD CUP 2026</div>
+      <div id="wc-fixtures" style="overflow-y:auto;max-height:110px;scrollbar-width:thin;scrollbar-color:var(--b) transparent;">
+        <div class="loading">LOADING FIXTURES...</div>
+      </div>
+    </div>
+
     <!-- Chat -->
     <div class="pn chat-pn">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid rgba(0,80,150,0.2);">
@@ -810,6 +818,9 @@ function sendMsg(){
         if(d.action==='show_feed' && d.channel){
           switchCamera(d.channel, d.camera_name || d.name || `CAM ${d.channel}`);
         }
+        if(d.action==='play_radio' && d.url){
+          playRadioStation(d.url, d.name || 'Radio', d.favicon || '');
+        }
         if(d.action==='camera_renamed'){
           loadCameraList(); // Refresh sidebar with new name
         }
@@ -1053,18 +1064,165 @@ async function fetchStudents(){
   }catch(e){}
 }
 
+// ── Radio Player ─────────────────────────────────────────────
+let radioPlaying = false;
+const radioAudio = document.getElementById('radio-audio');
+
+function playRadioStation(url, name, favicon) {
+  radioAudio.src = url;
+  radioAudio.play().catch(()=>{});
+  radioPlaying = true;
+  document.getElementById('radio-station-name').textContent = name;
+  document.getElementById('radio-play-btn').textContent = '⏸ PAUSE';
+  document.getElementById('radio-status').textContent = '● ON AIR';
+  document.getElementById('radio-status').style.color = '#00ff88';
+}
+
+function toggleRadio() {
+  if (!radioAudio.src || radioAudio.src === window.location.href) return;
+  if (radioPlaying) {
+    radioAudio.pause();
+    radioPlaying = false;
+    document.getElementById('radio-play-btn').textContent = '▶ PLAY';
+    document.getElementById('radio-status').textContent = '◉ PAUSED';
+    document.getElementById('radio-status').style.color = 'rgba(123,47,255,0.6)';
+  } else {
+    radioAudio.play();
+    radioPlaying = true;
+    document.getElementById('radio-play-btn').textContent = '⏸ PAUSE';
+    document.getElementById('radio-status').textContent = '● ON AIR';
+    document.getElementById('radio-status').style.color = '#00ff88';
+  }
+}
+
+function setRadioVol(v) { radioAudio.volume = parseFloat(v); }
+
+// Radio drag
+(function(){
+  const box = document.getElementById('radio-float');
+  const bar = document.getElementById('radio-bar');
+  if (!box || !bar) return;
+  let sx=0, sy=0;
+  bar.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const r = box.getBoundingClientRect();
+    box.style.left = r.left + 'px'; box.style.top = r.top + 'px';
+    box.style.right = 'auto'; box.style.bottom = 'auto';
+    sx = e.clientX - r.left; sy = e.clientY - r.top;
+    const mv = ev => {
+      box.style.left = Math.max(0,ev.clientX-sx)+'px';
+      box.style.top  = Math.max(0,ev.clientY-sy)+'px';
+    };
+    document.addEventListener('mousemove', mv);
+    document.addEventListener('mouseup', ()=>document.removeEventListener('mousemove',mv),{once:true});
+  });
+})();
+
+// ── World Cup Fixtures ────────────────────────────────────────
+async function loadWorldCup() {
+  const el = document.getElementById('wc-fixtures');
+  if (!el) return;
+  try {
+    const d = await fetch('/api/worldcup').then(r => r.json());
+    const fixtures = d.fixtures || [];
+    if (!fixtures.length) { el.innerHTML='<div style="font-size:9px;color:var(--dim);padding:2px 0;">No fixtures available.</div>'; return; }
+    el.innerHTML = fixtures.slice(0,8).map(f => {
+      const live = f.status === 'in';
+      const score = f.score ? ` <span style="color:var(--green);font-weight:bold;">${f.score}</span>` : '';
+      const dot = live ? '<span style="color:var(--green);animation:pdot 1s infinite;">●</span> ' : '';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid rgba(0,80,150,0.15);font-size:8px;">
+        <span style="color:var(--white);flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${dot}${esc(f.home)} vs ${esc(f.away)}${score}</span>
+        <span style="color:var(--dim);font-size:7px;margin-left:4px;white-space:nowrap;">${esc(f.date||'')}</span>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML='<div style="font-size:9px;color:var(--dim);">Fixtures unavailable.</div>';
+  }
+}
+
+// ── Draggable Panels ──────────────────────────────────────────
+function makeAllPanelsDraggable() {
+  document.querySelectorAll('.pn').forEach(panel => {
+    const title = panel.querySelector('.pn-title');
+    if (!title) return;
+    title.style.cursor = 'move';
+    title.style.userSelect = 'none';
+    let floating = false, sx=0, sy=0;
+    title.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      if (!floating) {
+        const r = panel.getBoundingClientRect();
+        const ghost = document.createElement('div');
+        ghost.style.cssText = `width:${r.width}px;height:${r.height}px;opacity:0;flex-shrink:0;`;
+        panel.parentNode.insertBefore(ghost, panel);
+        panel.dataset.ghost = 'true';
+        panel.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;z-index:800;`;
+        floating = true;
+      }
+      sx = e.clientX - panel.getBoundingClientRect().left;
+      sy = e.clientY - panel.getBoundingClientRect().top;
+      const move = ev => {
+        panel.style.left = Math.max(0, ev.clientX - sx) + 'px';
+        panel.style.top  = Math.max(0, ev.clientY - sy) + 'px';
+      };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', () => document.removeEventListener('mousemove', move), {once:true});
+    });
+    title.addEventListener('dblclick', () => {
+      if (floating) {
+        const ghost = panel.parentNode.querySelector('[data-ghost]');
+        panel.style.position = '';
+        panel.style.left = '';
+        panel.style.top = '';
+        panel.style.width = '';
+        panel.style.zIndex = '';
+        if (ghost && ghost !== panel) ghost.remove();
+        floating = false;
+      }
+    });
+  });
+}
+
 // ═══════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════
 fetchStatus(); fetchWeather(); fetchNews(); fetchTraffic(); fetchFlights(); fetchEmail();
 fetchMemory(); fetchStudents();
 loadCameraList();
+loadWorldCup();
+makeAllPanelsDraggable();
 setInterval(fetchWeather,60000); setInterval(fetchTraffic,60000);
 setInterval(fetchNews,300000); setInterval(fetchFlights,90000);
 setInterval(fetchEmail,120000);
 setInterval(fetchMemory,60000); setInterval(fetchStudents,120000);
 setInterval(loadCameraList,30000);
+setInterval(loadWorldCup, 300000);
 </script>
+
+<!-- ═══ FLOATING RADIO PLAYER ═══════════════════════════════ -->
+<div id="radio-float" style="position:fixed;bottom:42px;right:228px;width:300px;
+  background:rgba(0,5,20,0.92);border:1px solid rgba(123,47,255,0.5);
+  box-shadow:0 0 14px rgba(123,47,255,0.5);backdrop-filter:blur(10px);
+  z-index:901;display:flex;flex-direction:column;font-family:'Courier New',monospace;">
+  <div id="radio-bar" style="display:flex;align-items:center;justify-content:space-between;
+    padding:5px 8px;background:rgba(123,47,255,0.1);border-bottom:1px solid rgba(123,47,255,0.3);
+    cursor:move;user-select:none;">
+    <span style="font-size:8px;letter-spacing:3px;color:#b47fff;text-shadow:0 0 8px rgba(123,47,255,0.8);">◈ RADIO</span>
+    <span id="radio-station-name" style="font-size:8px;color:#d8f4ff;letter-spacing:1px;flex:1;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin:0 6px;">OFF AIR</span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="radio-status" style="font-size:7px;color:rgba(123,47,255,0.6);letter-spacing:1px;">◉ IDLE</span>
+    </div>
+  </div>
+  <div style="padding:6px 8px;display:flex;align-items:center;gap:8px;">
+    <button id="radio-play-btn" onclick="toggleRadio()" style="font-size:10px;background:rgba(123,47,255,0.2);
+      border:1px solid rgba(123,47,255,0.5);color:#b47fff;padding:3px 10px;cursor:pointer;font-family:monospace;">▶ PLAY</button>
+    <input id="radio-vol" type="range" min="0" max="1" step="0.05" value="0.7"
+      style="flex:1;accent-color:#7b2fff;" oninput="setRadioVol(this.value)">
+    <span style="font-size:8px;color:rgba(123,47,255,0.6);">VOL</span>
+  </div>
+  <audio id="radio-audio" preload="none"></audio>
+</div>
 
 <!-- ═══ FLOATING CAMERA BOX ═══════════════════════════════════ -->
 <div id="cam-float">

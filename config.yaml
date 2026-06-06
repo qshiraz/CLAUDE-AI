@@ -64,6 +64,30 @@ traffic:
   # Free tier: https://developer.tomtom.com/
   radius_km: 30
 
+education:
+  enabled: true
+
+# ── Camera / Guard Vision ────────────────────────────────────
+# Add your Guard Vision / IP cameras here (or in config.local.yaml)
+camera:
+  enabled: true
+  snapshot_dir: "/tmp/jarvis_snapshots"
+  cameras: []
+  # Example camera entries (add to config.local.yaml with real values):
+  # cameras:
+  #   - id: "front_gate"
+  #     name: "Front Gate"
+  #     location: "Main Entrance"
+  #     url: "rtsp://192.168.1.100:554/stream1"
+  #     username: "admin"
+  #     password: "YOUR_CAMERA_PASSWORD"
+  #   - id: "backyard"
+  #     name: "Backyard"
+  #     location: "Rear Garden"
+  #     url: "http://192.168.1.101/snapshot.jpg"
+  #     username: "admin"
+  #     password: "YOUR_CAMERA_PASSWORD"
+
 # ── Plugin directory ────────────────────────────────────────
 plugins:
   enabled: true

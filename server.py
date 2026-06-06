@@ -131,6 +131,83 @@ async def api_status():
     })
 
 
+# ── Memory endpoints ──────────────────────────────────────────────────────────
+
+@app.get("/api/memory")
+async def api_memory():
+    from jarvis.core.memory import MemoryManager
+    mem = MemoryManager()
+    memories = mem.recall(limit=100)
+    grouped: dict[str, list[dict]] = {}
+    for m in memories:
+        grouped.setdefault(m["category"], []).append(m)
+    return JSONResponse({"memories": grouped, "total": len(memories)})
+
+
+@app.post("/api/memory")
+async def api_memory_add(request: Request):
+    data = await request.json()
+    from jarvis.core.memory import MemoryManager
+    mem = MemoryManager()
+    mem.remember(
+        data.get("category", "general"),
+        data.get("key", ""),
+        data.get("value", ""),
+        int(data.get("importance", 1)),
+    )
+    return JSONResponse({"remembered": True})
+
+
+@app.delete("/api/memory/{category}/{key}")
+async def api_memory_forget(category: str, key: str):
+    from jarvis.core.memory import MemoryManager
+    mem = MemoryManager()
+    mem.forget(category, key)
+    return JSONResponse({"forgotten": True})
+
+
+# ── Education / student endpoints ─────────────────────────────────────────────
+
+@app.get("/api/students")
+async def api_students():
+    from jarvis.core.memory import MemoryManager
+    mem = MemoryManager()
+    return JSONResponse({"students": mem.student_summary()})
+
+
+@app.get("/api/students/{student_name}")
+async def api_student_progress(student_name: str):
+    from jarvis.core.memory import MemoryManager
+    mem = MemoryManager()
+    progress = mem.get_student_progress(student_name)
+    return JSONResponse({"student": student_name, "sessions": len(progress), "progress": progress})
+
+
+# ── Camera endpoints ──────────────────────────────────────────────────────────
+
+@app.get("/api/cameras")
+async def api_cameras():
+    return JSONResponse(await _dispatch("list_cameras", {}))
+
+
+@app.get("/api/cameras/alerts")
+async def api_camera_alerts():
+    return JSONResponse(await _dispatch("get_motion_alerts", {"limit": 20}))
+
+
+@app.post("/api/cameras/alert")
+async def api_camera_alert(request: Request):
+    """Webhook endpoint for Guard Vision / camera systems to push motion events."""
+    data = await request.json()
+    from jarvis.agents.camera_agent import add_motion_alert
+    add_motion_alert(
+        camera_id=data.get("camera_id", "unknown"),
+        camera_name=data.get("camera_name", "Camera"),
+        description=data.get("description", "Motion detected"),
+    )
+    return JSONResponse({"received": True})
+
+
 # ── Chat endpoints ────────────────────────────────────────────────────────────
 
 @app.websocket("/ws/chat")

@@ -252,6 +252,14 @@ canvas.graph{width:100%;height:60px;display:block;}
       <div id="traffic-mini"><div class="loading">LOADING...</div></div>
     </div>
 
+    <div class="pn" style="flex:1.2">
+      <div class="pn-title">◈ GUARD VISION</div>
+      <div id="cam-panel">
+        <div class="loading">SCANNING...</div>
+      </div>
+      <div id="cam-alerts" style="margin-top:4px;"></div>
+    </div>
+
   </div>
 
   <!-- CENTER: Arc Reactor + Chat -->
@@ -412,6 +420,18 @@ canvas.graph{width:100%;height:60px;display:block;}
       </div>
     </div>
 
+    <div class="pn" style="flex:1.2">
+      <div class="pn-title">◈ MEMORY VAULT</div>
+      <div id="memory-panel"><div class="loading">LOADING...</div></div>
+    </div>
+
+    <div class="pn" style="flex:1">
+      <div class="pn-title">◈ EDUCATION — STUDENTS</div>
+      <div id="students-panel"><div class="loading">LOADING...</div></div>
+      <button class="sbtn" style="margin-top:4px;font-size:8px;letter-spacing:1px;width:100%;"
+        onclick="askJarvis('Show me a summary of all student progress')">VIEW PROGRESS</button>
+    </div>
+
   </div>
 
 </div><!-- /main -->
@@ -425,6 +445,7 @@ canvas.graph{width:100%;height:60px;display:block;}
   <div class="bottom-stats">
     <div class="b-stat">FLIGHTS NEARBY: <span id="b-flights">--</span></div>
     <div class="b-stat">EMAIL: <span id="b-email">--</span></div>
+    <div class="b-stat">CAMERAS: <span id="b-cameras">--</span></div>
     <div class="b-stat">UPTIME: <span id="b-uptime">00:00:00</span></div>
   </div>
   <div style="font-size:8px;letter-spacing:2px;color:var(--dim);">v2.0 · JARVIS OS</div>
@@ -794,12 +815,100 @@ async function fetchStatus(){
 function askJarvis(q){document.getElementById('cinput').value=q;sendMsg();}
 
 // ═══════════════════════════════════════════════════════════
+// GUARD VISION — CAMERAS
+// ═══════════════════════════════════════════════════════════
+async function fetchCameras(){
+  try{
+    const d=await fetch('/api/cameras').then(r=>r.json());
+    const el=document.getElementById('cam-panel');
+    const cams=d.cameras||[];
+    if(cams.length===0){
+      el.innerHTML=`<div style="font-size:9px;color:var(--dim);line-height:1.6;">
+        No cameras configured.<br>
+        <span style="color:var(--c);cursor:pointer;" onclick="askJarvis('How do I add a camera to Jarvis?')">Ask Jarvis how to add one →</span>
+      </div>`;
+    } else {
+      el.innerHTML=cams.map(c=>`
+        <div class="net-row" style="cursor:pointer;" onclick="askJarvis('Analyze camera ${c.id}')">
+          <span class="net-lbl" style="max-width:90px;overflow:hidden;">${esc(c.name.toUpperCase()).substring(0,16)}</span>
+          <span style="font-size:8px;color:var(--green);">● ${esc(c.type)}</span>
+        </div>`).join('');
+    }
+    // Alerts
+    document.getElementById('b-cameras').textContent=cams.length+' CAM'+(cams.length===1?'':'S');
+    const ad=await fetch('/api/cameras/alerts').then(r=>r.json());
+    const alerts=ad.alerts||[];
+    const ael=document.getElementById('cam-alerts');
+    if(alerts.length>0){
+      ael.innerHTML=`<div style="font-size:8px;color:var(--red);letter-spacing:1px;margin-bottom:2px;">⚠ ALERTS</div>`
+        +alerts.slice(0,2).map(a=>`
+          <div style="font-size:8px;color:var(--yellow);padding:2px 0;border-bottom:1px solid rgba(255,100,0,0.15);">
+            ${esc(a.camera_name)}: ${esc(a.description).substring(0,40)}
+          </div>`).join('');
+    } else {
+      ael.innerHTML=`<div style="font-size:8px;color:var(--dim)">NO ALERTS</div>`;
+    }
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════════
+// MEMORY VAULT
+// ═══════════════════════════════════════════════════════════
+async function fetchMemory(){
+  try{
+    const d=await fetch('/api/memory').then(r=>r.json());
+    const el=document.getElementById('memory-panel');
+    const grouped=d.memories||{};
+    const cats=Object.keys(grouped);
+    if(cats.length===0){
+      el.innerHTML='<div style="font-size:9px;color:var(--dim)">No memories stored yet.</div>';
+      return;
+    }
+    let html='';
+    cats.slice(0,3).forEach(cat=>{
+      const items=grouped[cat]||[];
+      html+=`<div style="font-size:8px;color:var(--c);letter-spacing:2px;margin:3px 0 1px;">${esc(cat.toUpperCase())}</div>`;
+      items.slice(0,2).forEach(m=>{
+        html+=`<div class="net-row">
+          <span class="net-lbl" style="max-width:60px;overflow:hidden;">${esc(m.key).substring(0,10)}</span>
+          <span style="font-size:8px;color:var(--white);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.value).substring(0,22)}</span>
+        </div>`;
+      });
+    });
+    el.innerHTML=html+`<div style="font-size:8px;color:var(--dim);margin-top:3px;">Total: ${d.total} facts · <span style="cursor:pointer;color:var(--c);" onclick="askJarvis('What do you remember about me?')">Ask Jarvis →</span></div>`;
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════════
+// EDUCATION — STUDENTS
+// ═══════════════════════════════════════════════════════════
+async function fetchStudents(){
+  try{
+    const d=await fetch('/api/students').then(r=>r.json());
+    const el=document.getElementById('students-panel');
+    const students=d.students||[];
+    if(students.length===0){
+      el.innerHTML='<div style="font-size:9px;color:var(--dim)">No students tracked yet.</div>';
+      return;
+    }
+    el.innerHTML=students.slice(0,4).map(s=>`
+      <div class="ag-row" style="cursor:pointer;" onclick="askJarvis('Show progress for student ${esc(s.name)}')">
+        <div class="ag-dot ok"></div>
+        <span class="ag-name">${esc(s.name).toUpperCase()}</span>
+        <span class="ag-status">${s.avg_score!==null?s.avg_score+'%':'--'}</span>
+      </div>`).join('');
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════
 fetchStatus(); fetchWeather(); fetchNews(); fetchTraffic(); fetchFlights(); fetchEmail();
+fetchCameras(); fetchMemory(); fetchStudents();
 setInterval(fetchWeather,60000); setInterval(fetchTraffic,60000);
 setInterval(fetchNews,300000); setInterval(fetchFlights,90000);
 setInterval(fetchEmail,120000);
+setInterval(fetchCameras,30000); setInterval(fetchMemory,60000); setInterval(fetchStudents,120000);
 </script>
 </body>
 </html>

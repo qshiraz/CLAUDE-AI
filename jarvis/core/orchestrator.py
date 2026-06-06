@@ -2,36 +2,66 @@
 
 import json
 import logging
+import re
 from typing import AsyncIterator
 
 import anthropic
 
 from jarvis.core.agent_registry import AgentRegistry
+from jarvis.core.memory import MemoryManager
 
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """\
-You are Jarvis, an advanced AI personal assistant. You have access to a suite of \
-specialist tools covering weather, smart home control, email, news, flight tracking, \
-and live traffic — and the user can extend you further with plugins.
+You are Jarvis, an elite AI personal assistant built for {user_name}. \
+You have specialist tools for weather, smart home, email, news, flights, traffic, \
+education/tutoring, and can be extended with plugins.
 
-Personality: helpful, concise, proactive, slightly witty — think Friday from Iron Man.
+Personality: brilliant, proactive, slightly witty — think JARVIS from Iron Man. \
+You know your user deeply and personalise every response.
 
 Guidelines:
-- Always use the relevant tool(s) to fetch live data; never guess values like temperatures, \
-  flight numbers, or traffic conditions.
-- When multiple tools are needed for one request, call them efficiently.
-- Summarise data intelligently — don't dump raw JSON at the user.
-- If a tool returns an error (API key missing, service down), acknowledge it gracefully and \
-  offer alternatives.
+- Use tools for all live data — never guess temperatures, scores, or facts.
+- Summarise data intelligently — no raw JSON dumps.
+- When you learn something important about the user or a student, remember it using \
+  the memory system by calling the remember_fact tool.
 - Address the user as "{user_name}".
+- For education: be patient, encouraging, use Kenya/East Africa real-world examples.
+
+{memory_context}
 """
+
+REMEMBER_TOOL = {
+    "name": "remember_fact",
+    "description": (
+        "Saves an important fact to Jarvis's long-term memory. "
+        "Use this whenever you learn something significant about the user — "
+        "their preferences, important dates, decisions, or anything they ask you to remember."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "category": {
+                "type": "string",
+                "description": "Category e.g. 'personal', 'preference', 'health', 'work', 'family', 'reminder'",
+            },
+            "key": {"type": "string", "description": "Short label e.g. 'favourite_food', 'wife_name'"},
+            "value": {"type": "string", "description": "The fact to remember"},
+            "importance": {
+                "type": "integer",
+                "description": "1=low, 2=medium, 3=high importance",
+            },
+        },
+        "required": ["category", "key", "value"],
+    },
+}
 
 
 class JarvisOrchestrator:
     def __init__(self, cfg: dict, registry: AgentRegistry) -> None:
         self.cfg = cfg
         self.registry = registry
+        self.memory = MemoryManager()
         self.client = anthropic.Anthropic()
         self.model: str = cfg.get("claude", {}).get("model", "claude-opus-4-8")
         self.user_name: str = cfg.get("jarvis", {}).get("user_name", "Boss")
@@ -40,10 +70,15 @@ class JarvisOrchestrator:
     # ── Public API ──────────────────────────────────────────────────────────
 
     async def chat(self, user_message: str) -> AsyncIterator[str]:
-        """Send a user message and yield streamed text chunks back."""
+        self.memory.log_conversation("user", user_message)
         self.history.append({"role": "user", "content": user_message})
+        full_response: list[str] = []
         async for chunk in self._run_agent_loop():
+            full_response.append(chunk)
             yield chunk
+        response_text = "".join(full_response)
+        if response_text:
+            self.memory.log_conversation("jarvis", response_text)
 
     def reset(self) -> None:
         self.history.clear()
@@ -54,8 +89,10 @@ class JarvisOrchestrator:
         return self._agent_loop_impl()
 
     async def _agent_loop_impl(self) -> AsyncIterator[str]:  # type: ignore[return-value]
-        tools = self.registry.all_tools()
-        system = SYSTEM_PROMPT.format(user_name=self.user_name)
+        agent_tools = self.registry.all_tools()
+        all_tools = agent_tools + [REMEMBER_TOOL]
+        memory_ctx = self.memory.to_context_string()
+        system = SYSTEM_PROMPT.format(user_name=self.user_name, memory_context=memory_ctx)
 
         while True:
             text_parts: list[str] = []
@@ -66,7 +103,7 @@ class JarvisOrchestrator:
                 max_tokens=4096,
                 system=system,
                 messages=self.history,
-                tools=tools if tools else anthropic.NOT_GIVEN,
+                tools=all_tools if all_tools else anthropic.NOT_GIVEN,
                 thinking={"type": "adaptive"},
             ) as stream:
                 for event in stream:
@@ -105,7 +142,17 @@ class JarvisOrchestrator:
             tool_results = []
             for tc in tool_calls:
                 logger.debug("Dispatching tool: %s(%s)", tc["name"], tc["input"])
-                result = self.registry.dispatch(tc["name"], tc["input"])
+                if tc["name"] == "remember_fact":
+                    inp = tc["input"]
+                    self.memory.remember(
+                        inp.get("category", "general"),
+                        inp.get("key", "fact"),
+                        inp.get("value", ""),
+                        int(inp.get("importance", 1)),
+                    )
+                    result = json.dumps({"remembered": True, "key": inp.get("key")})
+                else:
+                    result = self.registry.dispatch(tc["name"], tc["input"])
                 tool_results.append(
                     {
                         "type": "tool_result",

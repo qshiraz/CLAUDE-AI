@@ -933,28 +933,28 @@ async function loadCameraList() {
       document.getElementById('cam-live-ind').style.display = 'none';
       return;
     }
-    const onlineCount = channels.filter(c => (c.status||'').toLowerCase() !== 'offline').length;
-    statusEl.textContent = `${onlineCount}/${channels.length} ONLINE`;
-    statusEl.style.color = onlineCount > 0 ? 'var(--green)' : 'var(--red)';
-    document.getElementById('b-cameras').textContent = channels.length + ' CAM' + (channels.length === 1 ? '' : 'S');
+    const online = channels.filter(c => (c.status || 'online').toLowerCase() !== 'offline');
+    statusEl.textContent = `${online.length} ONLINE`;
+    statusEl.style.color = online.length > 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('b-cameras').textContent = online.length + ' CAM' + (online.length === 1 ? '' : 'S');
 
-    listEl.innerHTML = channels.map(cam => {
+    if (!online.length) {
+      listEl.innerHTML = '<div style="font-size:9px;color:var(--dim);padding:4px 2px;">No cameras online.</div>';
+      return;
+    }
+
+    listEl.innerHTML = online.map(cam => {
       const ch = cam.channel || cam.id || 1;
       const nm = cam.name || `CAM ${ch}`;
-      const online = (cam.status || 'online').toLowerCase() !== 'offline';
-      const dotCls = online ? 'online' : 'offline';
-      const badge = online
-        ? `<span class="cam-live-badge">LIVE</span>`
-        : `<span class="cam-offline-badge">OFF</span>`;
       return `<div class="cam-list-row" data-channel="${ch}" onclick="switchCamera(${ch},'${nm.replace(/'/g,"\\'")}')" title="${esc(nm)} — click to view">
-        <span class="cam-dot ${dotCls}"></span>
+        <span class="cam-dot online"></span>
         <span class="cam-name">${esc(nm)}</span>
-        ${badge}
+        <span class="cam-live-badge">LIVE</span>
       </div>`;
     }).join('');
 
     // Auto-select first online camera
-    const first = channels.find(c => (c.status || 'online').toLowerCase() !== 'offline') || channels[0];
+    const first = online[0];
     if (first) {
       switchCamera(first.channel || first.id || 1, first.name || `CAM ${first.channel || 1}`);
     }

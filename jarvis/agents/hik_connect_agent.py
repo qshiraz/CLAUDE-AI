@@ -1,13 +1,18 @@
 """Hik-Connect / Guard Vision credential-based agent.
 
 Logs in with Guard Vision username + password — no developer account needed.
-Add credentials to config.local.yaml under hik_connect (never commit them).
+Handles Hikvision's new-device verification code flow automatically.
+
+Add to config.local.yaml:
+  hik_connect:
+    username: "your_guard_vision_email_or_phone"
+    password: "your_guard_vision_password"
 """
 
+import base64
 import hashlib
 import json
 import time
-import uuid
 from datetime import datetime
 from typing import Any
 
@@ -15,27 +20,29 @@ import requests
 
 from jarvis.agents.base_agent import BaseAgent
 
-_SESSION: dict = {}   # {session_id, expiry, user_id}
+# Persistent across the process lifetime
+_SESSION: dict = {}   # session_id, expiry
+_PENDING_VERIFY: dict = {}  # waiting for SMS/email code
 
 
 class HikConnectAgent(BaseAgent):
     name = "hik_connect"
     description = (
         "Connects to Guard Vision / Hik-Connect cloud cameras using your "
-        "account username and password. No developer API key needed."
+        "account credentials. Lists cameras, fetches snapshots, and analyses scenes."
     )
 
-    _LOGIN_URL  = "https://api.hik-connect.com/v3/users/login"
-    _CAMERA_URL = "https://api.hik-connect.com/v3/userdevices/v1/devices/pagelist"
-    _SNAP_URL   = "https://api.hik-connect.com/v3/snapshots/cameras/{index_code}/files"
-    _STREAM_URL = "https://api.hik-connect.com/v3/video/cameras/{index_code}/protocols"
+    # Hikvision uses region-specific endpoints; try both
+    _ENDPOINTS = [
+        "https://api.hik-connect.com",
+        "https://api2.hik-connect.com",
+        "https://api.hikvision.com",
+    ]
+    _BASE = "https://api.hik-connect.com"
 
-    _HEADERS = {
-        "clientType":    "55",
-        "lang":          "en-US",
-        "Content-Type":  "application/x-www-form-urlencoded;charset=UTF-8",
-        "featureCode":   "deadbeef12345678",   # static device fingerprint
-    }
+    # clientType 55 = third-party; featureCode must be stable per "device"
+    _FEATURE_CODE = "a1b2c3d4e5f6a7b8"
+    _CLIENT_TYPE  = "55"
 
     def __init__(self, cfg: dict, global_cfg: dict) -> None:
         super().__init__(cfg, global_cfg)
@@ -45,8 +52,9 @@ class HikConnectAgent(BaseAgent):
         self._session_expiry: float = 0.0
         self._cam_cache: list[dict] = []
         self._cache_ts: float = 0.0
+        self._verify_pending: bool = False
 
-    # ── Tools ────────────────────────────────────────────────────────────────
+    # ── Tool definitions ─────────────────────────────────────────────────────
 
     def tools(self) -> list[dict[str, Any]]:
         return [
@@ -56,21 +64,41 @@ class HikConnectAgent(BaseAgent):
                 "input_schema": {"type": "object", "properties": {}},
             },
             {
+                "name": "hc_verify_login",
+                "description": (
+                    "Submits the verification code sent to your phone or email "
+                    "by Hikvision when logging in from a new device. "
+                    "Call this after hc_list_cameras reports a verification code is required."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string",
+                            "description": "The 6-digit code from your SMS or email",
+                        },
+                    },
+                    "required": ["code"],
+                },
+            },
+            {
                 "name": "hc_analyze_camera",
                 "description": (
                     "Fetches a live snapshot from a Guard Vision camera "
-                    "and uses AI vision to describe what is happening."
+                    "and uses AI vision to describe what is happening — "
+                    "people, vehicles, activity, security concerns."
                 ),
                 "input_schema": {
                     "type": "object",
                     "properties": {
                         "camera_name": {
                             "type": "string",
-                            "description": "Camera name as shown in Guard Vision app",
+                            "description": "Camera name exactly as shown in Guard Vision app",
                         },
                         "focus": {
                             "type": "string",
                             "enum": ["security", "people", "vehicles", "general"],
+                            "description": "What to focus on (default: security)",
                         },
                     },
                     "required": ["camera_name"],
@@ -78,7 +106,7 @@ class HikConnectAgent(BaseAgent):
             },
             {
                 "name": "hc_get_stream",
-                "description": "Returns a live stream URL for a Guard Vision camera (open in VLC).",
+                "description": "Returns a live HLS stream URL for a Guard Vision camera.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -92,147 +120,227 @@ class HikConnectAgent(BaseAgent):
     # ── Dispatch ─────────────────────────────────────────────────────────────
 
     def handle(self, tool_name: str, tool_input: dict[str, Any]) -> str:
-        if tool_name == "hc_list_cameras":  return self._list_cameras()
+        if tool_name == "hc_list_cameras":   return self._list_cameras()
+        if tool_name == "hc_verify_login":   return self._verify_login(tool_input)
         if tool_name == "hc_analyze_camera": return self._analyze(tool_input)
-        if tool_name == "hc_get_stream":    return self._get_stream(tool_input)
+        if tool_name == "hc_get_stream":     return self._get_stream(tool_input)
         return f"Unknown tool: {tool_name}"
 
-    # ── Auth ─────────────────────────────────────────────────────────────────
+    # ── Auth helpers ──────────────────────────────────────────────────────────
 
     def _has_creds(self) -> bool:
         return bool(self._username and self._password)
 
+    def _no_creds_response(self) -> str:
+        return json.dumps({
+            "error": "Guard Vision credentials not configured.",
+            "fix": (
+                "Open config.local.yaml and add:\n\n"
+                "hik_connect:\n"
+                "  username: 'your_guardvision_email'\n"
+                "  password: 'your_guardvision_password'\n\n"
+                "Then restart Jarvis."
+            ),
+        })
+
+    def _md5(self, text: str) -> str:
+        return hashlib.md5(text.encode("utf-8")).hexdigest()
+
     def _login(self) -> str:
-        """Log in and return session ID. Reuses valid session."""
+        """Return a valid session ID, logging in if needed."""
         if self._session_id and time.time() < self._session_expiry:
             return self._session_id
 
-        md5_pw = hashlib.md5(self._password.encode("utf-8")).hexdigest()
+        payload = {
+            "account":     self._username,
+            "password":    self._md5(self._password),
+            "featureCode": self._FEATURE_CODE,
+            "clientType":  self._CLIENT_TYPE,
+            "lang":        "en-US",
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"}
 
-        resp = requests.post(
-            self._LOGIN_URL,
-            data={
-                "account":     self._username,
-                "password":    md5_pw,
-                "featureCode": "deadbeef12345678",
-                "clientType":  "55",
-                "lang":        "en-US",
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        last_err = ""
+        for base in self._ENDPOINTS:
+            try:
+                resp = requests.post(
+                    f"{base}/v3/users/login",
+                    data=payload,
+                    headers=headers,
+                    timeout=12,
+                )
+                data = resp.json()
+                code = str(data.get("code", ""))
 
-        code = str(data.get("code", ""))
-        if code != "200":
-            msg = data.get("msg", "Login failed")
-            raise RuntimeError(f"Hik-Connect login error {code}: {msg}")
+                if code == "200":
+                    session = (data.get("loginSession") or
+                               data.get("mloginSession") or {})
+                    sid = session.get("sessionId", "")
+                    if sid:
+                        self._BASE = base
+                        self._session_id = sid
+                        self._session_expiry = time.time() + 3500
+                        self._verify_pending = False
+                        return sid
 
-        session = data.get("loginSession") or data.get("mloginSession") or {}
-        sid = session.get("sessionId", "")
-        if not sid:
-            raise RuntimeError("No session ID returned — check username/password")
+                # Verification code required (new device)
+                if code in ("10002", "10006", "1014", "1015", "-100"):
+                    self._verify_pending = True
+                    _PENDING_VERIFY["base"] = base
+                    _PENDING_VERIFY["payload"] = payload
+                    raise RuntimeError(
+                        "VERIFY_REQUIRED: Hikvision sent a code to your phone/email. "
+                        "Check your messages and tell Jarvis: "
+                        "'My verification code is 123456'"
+                    )
 
-        self._session_id = sid
-        self._session_expiry = time.time() + 3600   # sessions last ~1 hour
-        return sid
+                last_err = f"Code {code}: {data.get('msg', 'unknown error')}"
+            except RuntimeError:
+                raise
+            except Exception as exc:
+                last_err = str(exc)
+                continue
 
-    def _api_get(self, url: str, params: dict | None = None) -> dict:
+        raise RuntimeError(f"Login failed: {last_err}")
+
+    def _verify_login(self, inp: dict) -> str:
+        """Complete login with SMS/email verification code."""
+        if not _PENDING_VERIFY:
+            return json.dumps({"error": "No pending verification. Try listing cameras first."})
+
+        code = str(inp.get("code", "")).strip()
+        base = _PENDING_VERIFY.get("base", self._BASE)
+        payload = dict(_PENDING_VERIFY.get("payload", {}))
+        payload["smsCode"] = code
+        payload["phoneCode"] = code
+
+        try:
+            resp = requests.post(
+                f"{base}/v3/users/loginWithCaptcha",
+                data=payload,
+                headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
+                timeout=12,
+            )
+            data = resp.json()
+            api_code = str(data.get("code", ""))
+
+            if api_code == "200":
+                session = data.get("loginSession") or data.get("mloginSession") or {}
+                sid = session.get("sessionId", "")
+                if sid:
+                    self._BASE = base
+                    self._session_id = sid
+                    self._session_expiry = time.time() + 3500
+                    self._verify_pending = False
+                    _PENDING_VERIFY.clear()
+                    return json.dumps({
+                        "success": True,
+                        "message": "Logged in successfully. You can now list and view your cameras.",
+                    })
+
+            return json.dumps({"error": f"Verification failed: {data.get('msg', api_code)}"})
+        except Exception as exc:
+            return json.dumps({"error": str(exc)})
+
+    def _authed_get(self, path: str, params: dict | None = None) -> dict:
         sid = self._login()
-        headers = {**self._HEADERS, "sessionId": sid}
-        resp = requests.get(url, headers=headers, params=params, timeout=15)
+        headers = {
+            "sessionId":  sid,
+            "clientType": self._CLIENT_TYPE,
+            "lang":       "en-US",
+        }
+        resp = requests.get(f"{self._BASE}{path}", headers=headers, params=params, timeout=15)
         resp.raise_for_status()
         return resp.json()
 
-    def _api_post(self, url: str, data: dict | None = None) -> dict | bytes:
-        sid = self._login()
-        headers = {**self._HEADERS, "sessionId": sid}
-        resp = requests.post(url, headers=headers, json=data, timeout=15)
-        resp.raise_for_status()
-        ct = resp.headers.get("Content-Type", "")
-        return resp.content if "image" in ct or "octet" in ct else resp.json()
-
     # ── Camera list ───────────────────────────────────────────────────────────
 
-    def _get_cameras(self) -> list[dict]:
+    def _refresh_cams(self) -> list[dict]:
         if self._cam_cache and time.time() - self._cache_ts < 300:
             return self._cam_cache
-        data = self._api_get(self._CAMERA_URL, {"pageStart": 0, "pageSize": 100})
-        devices = (data.get("cameraInfoList") or
-                   data.get("deviceInfos") or
-                   data.get("data") or [])
-        self._cam_cache = devices if isinstance(devices, list) else []
+        data = self._authed_get(
+            "/v3/userdevices/v1/devices/pagelist",
+            {"pageStart": 0, "pageSize": 100, "deviceCategory": "1"},
+        )
+        cams = (data.get("cameraInfoList") or
+                data.get("deviceInfos") or
+                (data.get("data") or {}).get("list") or
+                data.get("list") or [])
+        self._cam_cache = cams if isinstance(cams, list) else []
         self._cache_ts = time.time()
         return self._cam_cache
 
     def _find_cam(self, name: str) -> dict | None:
-        low = name.lower()
+        low = name.lower().strip()
         for c in self._cam_cache:
             cam_name = (c.get("cameraName") or c.get("deviceName") or "").lower()
             if cam_name == low or low in cam_name:
                 return c
         return None
 
-    # ── Implementations ───────────────────────────────────────────────────────
+    # ── Tool implementations ──────────────────────────────────────────────────
 
     def _list_cameras(self) -> str:
         if not self._has_creds():
-            return json.dumps({
-                "error": "Guard Vision credentials not set.",
-                "fix": (
-                    "Add to config.local.yaml:\n"
-                    "hik_connect:\n"
-                    "  username: 'your_guardvision_email_or_phone'\n"
-                    "  password: 'your_guardvision_password'"
-                ),
-            })
+            return self._no_creds_response()
         try:
-            cameras = self._get_cameras()
-            result = []
-            for c in cameras:
-                result.append({
-                    "name":   c.get("cameraName") or c.get("deviceName") or "Unknown",
-                    "serial": c.get("deviceSerial", ""),
-                    "model":  c.get("deviceType", ""),
-                    "status": "ONLINE" if str(c.get("status", "0")) == "1" else "OFFLINE",
-                })
+            cams = self._refresh_cams()
+            result = [{
+                "name":   c.get("cameraName") or c.get("deviceName") or "Unknown",
+                "model":  c.get("deviceType", ""),
+                "serial": c.get("deviceSerial", ""),
+                "status": "ONLINE" if str(c.get("status", "0")) in ("1", "online") else "OFFLINE",
+            } for c in cams]
             return json.dumps({"cameras": result, "total": len(result)})
+        except RuntimeError as exc:
+            msg = str(exc)
+            if "VERIFY_REQUIRED" in msg:
+                return json.dumps({
+                    "status": "verification_required",
+                    "message": msg.replace("VERIFY_REQUIRED: ", ""),
+                })
+            return json.dumps({"error": msg})
         except Exception as exc:
-            return json.dumps({"error": str(exc),
-                               "hint": "Check username/password in config.local.yaml"})
+            return json.dumps({"error": str(exc)})
 
     def _analyze(self, inp: dict) -> str:
         if not self._has_creds():
-            return self._list_cameras()
+            return self._no_creds_response()
         try:
-            self._get_cameras()
+            self._refresh_cams()
             cam = self._find_cam(inp["camera_name"])
             if not cam:
                 names = [c.get("cameraName") or c.get("deviceName") for c in self._cam_cache]
-                return json.dumps({"error": f"Camera not found. Available: {names}"})
+                return json.dumps({"error": f"Camera not found. Available cameras: {names}"})
 
-            index_code = cam.get("cameraIndexCode") or cam.get("deviceSerial", "")
-            snap_result = self._api_get(
-                self._SNAP_URL.format(index_code=index_code),
-                {"channelNo": 1, "qualityLevel": 1, "transType": 1}
+            index_code = (cam.get("cameraIndexCode") or
+                          cam.get("deviceIndexCode") or
+                          cam.get("deviceSerial", ""))
+
+            # Fetch snapshot
+            snap = self._authed_get(
+                f"/v3/snapshots/cameras/{index_code}/files",
+                {"channelNo": 1, "qualityLevel": 1},
             )
-            img_url = (snap_result.get("picUrl") or
-                       (snap_result.get("data") or {}).get("url") or "")
+            img_url = (snap.get("picUrl") or
+                       (snap.get("data") or {}).get("url") or
+                       snap.get("url") or "")
 
             if not img_url:
-                return json.dumps({"error": "Could not get snapshot URL from camera."})
+                return json.dumps({
+                    "camera": cam.get("cameraName", ""),
+                    "error":  "Snapshot not available — camera may be offline or streaming is disabled.",
+                })
 
             img_resp = requests.get(img_url, timeout=15)
             img_resp.raise_for_status()
-            import base64
             b64 = base64.b64encode(img_resp.content).decode()
 
             focus = inp.get("focus", "security")
             prompts = {
-                "security": "Identify any security concerns: intruders, suspicious vehicles, unusual activity.",
-                "people":   "Describe all people visible — clothing, activity, direction of movement.",
-                "vehicles": "Identify vehicles — type, colour, any visible licence plate.",
+                "security": "Identify security concerns: intruders, suspicious vehicles, unusual activity, access points.",
+                "people":   "Describe all people — clothing, activity, direction of movement.",
+                "vehicles": "Identify vehicles — type, colour, licence plate if visible.",
                 "general":  "Describe the full scene in detail.",
             }
             return json.dumps({
@@ -240,32 +348,40 @@ class HikConnectAgent(BaseAgent):
                 "timestamp": datetime.now().isoformat(),
                 "image_base64": b64,
                 "analysis_instruction": (
-                    f"Analyse this live security camera snapshot from '{cam.get('cameraName','')}'. "
-                    f"{prompts.get(focus, prompts['general'])} Be specific and security-focused."
+                    f"Analyse this live security camera image from '{cam.get('cameraName', '')}'. "
+                    f"{prompts.get(focus, prompts['general'])} "
+                    "Be specific, note any anomalies."
                 ),
             })
+        except RuntimeError as exc:
+            msg = str(exc)
+            if "VERIFY_REQUIRED" in msg:
+                return json.dumps({"status": "verification_required",
+                                   "message": msg.replace("VERIFY_REQUIRED: ", "")})
+            return json.dumps({"error": msg})
         except Exception as exc:
             return json.dumps({"error": str(exc)})
 
     def _get_stream(self, inp: dict) -> str:
         if not self._has_creds():
-            return self._list_cameras()
+            return self._no_creds_response()
         try:
-            self._get_cameras()
+            self._refresh_cams()
             cam = self._find_cam(inp["camera_name"])
             if not cam:
                 return json.dumps({"error": "Camera not found."})
-            index_code = cam.get("cameraIndexCode") or cam.get("deviceSerial", "")
-            data = self._api_get(
-                self._STREAM_URL.format(index_code=index_code),
-                {"streamType": 0, "protocol": "hls", "transType": 1}
+            index_code = (cam.get("cameraIndexCode") or
+                          cam.get("deviceIndexCode") or
+                          cam.get("deviceSerial", ""))
+            data = self._authed_get(
+                f"/v3/video/cameras/{index_code}/protocols",
+                {"streamType": 0, "protocol": "hls", "transType": 1},
             )
-            url = (data.get("url") or
-                   (data.get("data") or {}).get("url") or "")
+            url = (data.get("url") or (data.get("data") or {}).get("url") or "")
             return json.dumps({
                 "camera":       cam.get("cameraName", ""),
                 "stream_url":   url,
-                "instructions": "Open in VLC: Media → Open Network Stream → paste URL",
+                "instructions": "Open in VLC: Media → Open Network Stream → paste the URL",
             })
         except Exception as exc:
             return json.dumps({"error": str(exc)})

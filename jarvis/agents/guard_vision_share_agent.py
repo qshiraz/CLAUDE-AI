@@ -23,9 +23,13 @@ class GuardVisionShareAgent(BaseAgent):
         "and analyses scenes with AI vision."
     )
 
+    # Hikvision regional API endpoints — all tried in order
     _BASES = [
         "https://api.hik-connect.com",
-        "https://api2.hik-connect.com",
+        "https://apiisa.hik-connect.com",   # international south/africa
+        "https://apieur.hik-connect.com",   # europe
+        "https://apiusa.hik-connect.com",   # americas
+        "https://apicn.hik-connect.com",    # china/asia
     ]
 
     def __init__(self, cfg: dict, global_cfg: dict) -> None:

@@ -195,6 +195,29 @@ async def api_gv_cameras():
     return JSONResponse(await _dispatch("gv_list_cameras", {}))
 
 
+@app.get("/api/guard-vision/test")
+async def api_gv_test():
+    """Test which Hikvision API server is reachable from this machine."""
+    import httpx
+    endpoints = [
+        "https://api.hik-connect.com",
+        "https://apiisa.hik-connect.com",
+        "https://apieur.hik-connect.com",
+        "https://apiusa.hik-connect.com",
+        "https://apicn.hik-connect.com",
+    ]
+    results = {}
+    async with httpx.AsyncClient(timeout=6) as client:
+        for ep in endpoints:
+            try:
+                r = await client.get(ep)
+                results[ep] = f"OK ({r.status_code})"
+            except Exception as exc:
+                results[ep] = f"FAIL: {type(exc).__name__}"
+    working = [k for k, v in results.items() if v.startswith("OK")]
+    return JSONResponse({"results": results, "recommended": working[0] if working else "none"})
+
+
 @app.get("/api/cameras/alerts")
 async def api_camera_alerts():
     return JSONResponse(await _dispatch("get_motion_alerts", {"limit": 20}))

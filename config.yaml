@@ -115,6 +115,12 @@ camera:
   #     username: "admin"
   #     password: "YOUR_CAMERA_PASSWORD"
 
+radio:
+  enabled: true
+
+sports:
+  enabled: true
+
 # ── Plugin directory ────────────────────────────────────────
 plugins:
   enabled: true

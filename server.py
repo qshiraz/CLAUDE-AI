@@ -352,6 +352,11 @@ async def api_gv_test():
     return JSONResponse({"results": results, "recommended": working[0] if working else "none"})
 
 
+@app.get("/api/worldcup")
+async def api_worldcup():
+    return JSONResponse(await _dispatch("get_worldcup_fixtures", {"days_ahead": 14}))
+
+
 @app.get("/api/cameras/alerts")
 async def api_camera_alerts():
     return JSONResponse(await _dispatch("get_motion_alerts", {"limit": 20}))

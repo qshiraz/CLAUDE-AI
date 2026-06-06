@@ -190,6 +190,45 @@ async def api_cameras():
     return JSONResponse(await _dispatch("list_cameras", {}))
 
 
+@app.get("/api/cameras/stream/{channel}")
+async def api_camera_stream(channel: int):
+    """Proxy live MJPEG stream from DVR — works as <img> src in browser."""
+    from fastapi.responses import StreamingResponse
+    cam_cfg = cfg.get("camera", {})
+    ip   = cam_cfg.get("dvr_ip", "")
+    user = cam_cfg.get("dvr_username", "admin")
+    pwd  = cam_cfg.get("dvr_password", "")
+    if not ip or not pwd:
+        return JSONResponse({"error": "DVR not configured"}, status_code=503)
+
+    stream_urls = [
+        f"http://{ip}/ISAPI/Streaming/channels/{channel}01/httpPreview",
+        f"http://{ip}/cgi-bin/mjpg/video.cgi?channel={channel}&subtype=0",
+        f"http://{ip}/video.cgi?channel={channel}",
+    ]
+
+    import httpx
+
+    async def generate():
+        async with httpx.AsyncClient(timeout=None) as client:
+            for url in stream_urls:
+                try:
+                    async with client.stream("GET", url,
+                                             auth=(user, pwd)) as resp:
+                        if resp.status_code == 200:
+                            async for chunk in resp.aiter_bytes(4096):
+                                yield chunk
+                            return
+                except Exception:
+                    continue
+
+    return StreamingResponse(
+        generate(),
+        media_type="multipart/x-mixed-replace; boundary=--myboundary",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 @app.get("/api/cameras/snapshot/{channel}")
 async def api_camera_snapshot(channel: int):
     """Proxy: fetch snapshot from DVR and return as JPEG image."""

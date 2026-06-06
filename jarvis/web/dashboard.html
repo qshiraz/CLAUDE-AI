@@ -853,20 +853,24 @@ async function loadCameras(){
     // Create image tiles for each channel
     channels.forEach(cam => {
       const ch = cam.channel;
-      const online = (cam.status||'').includes('ONLINE');
       const tile = document.createElement('div');
-      tile.style.cssText = 'position:relative;background:#000;cursor:pointer;';
+      tile.style.cssText = 'position:relative;background:#000810;cursor:pointer;border:1px solid rgba(0,80,150,0.3);';
       tile.title = `Channel ${ch} — click to ask Jarvis`;
       tile.onclick = () => askJarvis(`Analyze channel ${ch} of my cameras and tell me what you see`);
 
+      // Try live MJPEG stream first — if it fails, fall back to refreshing snapshot
       const img = document.createElement('img');
-      img.style.cssText = 'width:100%;height:60px;object-fit:cover;display:block;';
-      img.src = `/api/cameras/snapshot/${ch}?t=${Date.now()}`;
-      img.onerror = () => { img.style.display='none'; lbl.style.color='var(--red)'; lbl.textContent=`CH${ch} OFFLINE`; };
+      img.style.cssText = 'width:100%;height:70px;object-fit:cover;display:block;';
+      img.src = `/api/cameras/stream/${ch}`;
+      img.onerror = () => {
+        // Fallback: refreshing snapshot every 5s
+        img.src = `/api/cameras/snapshot/${ch}?t=${Date.now()}`;
+        setInterval(() => { img.src = `/api/cameras/snapshot/${ch}?t=${Date.now()}`; }, 5000);
+      };
 
       const lbl = document.createElement('div');
-      lbl.style.cssText = 'position:absolute;bottom:0;left:0;right:0;font-size:7px;letter-spacing:1px;color:var(--white);background:rgba(0,0,0,0.6);padding:1px 3px;';
-      lbl.textContent = `CH${ch} · ${online ? 'LIVE' : 'OFFLINE'}`;
+      lbl.style.cssText = 'position:absolute;bottom:0;left:0;right:0;font-size:7px;letter-spacing:1px;color:var(--white);background:rgba(0,0,0,0.7);padding:2px 4px;display:flex;justify-content:space-between;';
+      lbl.innerHTML = `<span>CAM ${ch}</span><span style="color:var(--green);">● LIVE</span>`;
 
       tile.appendChild(img); tile.appendChild(lbl);
       grid.appendChild(tile);

@@ -56,10 +56,6 @@ class AgentRegistry:
             "flights": FlightAgent,
             "traffic": TrafficAgent,
             "education": EducationAgent,
-            "camera": CameraAgent,
-            "guard_vision": GuardVisionAgent,
-            "hik_connect": HikConnectAgent,
-            "guard_vision_share": GuardVisionShareAgent,
             "guard_vision_browser": GuardVisionBrowserAgent,
         }
 

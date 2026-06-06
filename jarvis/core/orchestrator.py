@@ -50,43 +50,7 @@ class JarvisOrchestrator:
 
     # ── Internal loop ───────────────────────────────────────────────────────
 
-    async def _run_agent_loop(self) -> AsyncIterator[str]:  # type: ignore[return]
-        tools = self.registry.all_tools()
-        system = SYSTEM_PROMPT.format(user_name=self.user_name)
-
-        while True:
-            full_text, tool_calls = yield from self._call_claude(system, tools)
-
-            if not tool_calls:
-                self.history.append({"role": "assistant", "content": full_text})
-                return
-
-            # Append assistant turn with tool_use blocks
-            self.history.append(
-                {
-                    "role": "assistant",
-                    "content": self._build_assistant_content(full_text, tool_calls),
-                }
-            )
-
-            # Execute tools and build tool_result turn
-            tool_results = []
-            for tc in tool_calls:
-                logger.debug("Tool call: %s(%s)", tc["name"], tc["input"])
-                result = self.registry.dispatch(tc["name"], tc["input"])
-                tool_results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": tc["id"],
-                        "content": result,
-                    }
-                )
-
-            self.history.append({"role": "user", "content": tool_results})
-
-    # We can't use `yield from` inside an async generator, so we implement the
-    # loop as a regular generator with manual plumbing.
-    def _run_agent_loop(self) -> "AsyncIterator[str]":  # type: ignore[no-redef]
+    def _run_agent_loop(self) -> "AsyncIterator[str]":
         return self._agent_loop_impl()
 
     async def _agent_loop_impl(self) -> AsyncIterator[str]:  # type: ignore[return-value]

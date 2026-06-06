@@ -1,8 +1,8 @@
 """Jarvis orchestrator — drives Claude with all registered agent tools."""
 
+import asyncio
 import json
 import logging
-import re
 from typing import AsyncIterator
 
 import anthropic
@@ -58,12 +58,14 @@ REMEMBER_TOOL = {
 
 
 class JarvisOrchestrator:
+    MAX_HISTORY = 20  # keep last 20 messages to avoid context bloat
+
     def __init__(self, cfg: dict, registry: AgentRegistry) -> None:
         self.cfg = cfg
         self.registry = registry
         self.memory = MemoryManager()
         self.client = anthropic.Anthropic()
-        self.model: str = cfg.get("claude", {}).get("model", "claude-opus-4-8")
+        self.model: str = cfg.get("claude", {}).get("model", "claude-sonnet-4-6")
         self.user_name: str = cfg.get("jarvis", {}).get("user_name", "Boss")
         self.history: list[dict] = []
 
@@ -98,13 +100,16 @@ class JarvisOrchestrator:
             text_parts: list[str] = []
             tool_calls: list[dict] = []
 
+            # Trim history to avoid context bloat
+            if len(self.history) > self.MAX_HISTORY:
+                self.history = self.history[-self.MAX_HISTORY:]
+
             with self.client.messages.stream(
                 model=self.model,
-                max_tokens=4096,
+                max_tokens=1024,
                 system=system,
                 messages=self.history,
                 tools=all_tools if all_tools else anthropic.NOT_GIVEN,
-                thinking={"type": "adaptive"},
             ) as stream:
                 for event in stream:
                     if (
@@ -119,7 +124,6 @@ class JarvisOrchestrator:
 
                 final = stream.get_final_message()
 
-            # Collect tool-use blocks from the final message
             for block in final.content:
                 if block.type == "tool_use":
                     tool_calls.append(
@@ -139,8 +143,8 @@ class JarvisOrchestrator:
                 }
             )
 
-            tool_results = []
-            for tc in tool_calls:
+            # Dispatch all tool calls in parallel
+            async def _run_tool(tc: dict) -> dict:
                 logger.debug("Dispatching tool: %s(%s)", tc["name"], tc["input"])
                 if tc["name"] == "remember_fact":
                     inp = tc["input"]
@@ -152,16 +156,11 @@ class JarvisOrchestrator:
                     )
                     result = json.dumps({"remembered": True, "key": inp.get("key")})
                 else:
-                    result = self.registry.dispatch(tc["name"], tc["input"])
-                tool_results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": tc["id"],
-                        "content": result,
-                    }
-                )
+                    result = await asyncio.to_thread(self.registry.dispatch, tc["name"], tc["input"])
+                return {"type": "tool_result", "tool_use_id": tc["id"], "content": result}
 
-            self.history.append({"role": "user", "content": tool_results})
+            tool_results = await asyncio.gather(*[_run_tool(tc) for tc in tool_calls])
+            self.history.append({"role": "user", "content": list(tool_results)})
 
     @staticmethod
     def _build_assistant_content(

@@ -16,8 +16,7 @@ jarvis:
     iata_airport: "MBA"   # Moi International Airport
 
 claude:
-  model: "claude-opus-4-8"
-  thinking: true
+  model: "claude-sonnet-4-6"
   streaming: true
 
 # ── Agent API keys ──────────────────────────────────────────

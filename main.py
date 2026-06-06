@@ -4,7 +4,9 @@
 import asyncio
 import logging
 import os
+import re
 import sys
+import threading
 from pathlib import Path
 
 from rich.console import Console
@@ -12,8 +14,6 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.rule import Rule
-from rich.spinner import Spinner
-from rich.live import Live
 
 # Make sure the project root is on the path so we can import jarvis.*
 sys.path.insert(0, str(Path(__file__).parent))
@@ -42,6 +42,7 @@ HELP_TEXT = """\
 - `flights`            → Nearby flights & airport departures
 - `traffic`            → Live traffic & route times
 - `morning briefing`   → Full daily briefing (all agents)
+- `voice on/off`       → Toggle voice output
 - `reset`              → Clear conversation history
 - `agents`             → List loaded agents
 - `help`               → Show this help
@@ -51,6 +52,65 @@ Or just type naturally — Jarvis understands plain language.
 """
 
 
+# ── Voice engine ─────────────────────────────────────────────────────────────
+
+class VoiceEngine:
+    def __init__(self) -> None:
+        self._engine = None
+        self._enabled = False
+        self._lock = threading.Lock()
+        self._load()
+
+    def _load(self) -> None:
+        try:
+            import pyttsx3
+            engine = pyttsx3.init()
+            # Pick a clear, slightly slower rate
+            engine.setProperty("rate", 165)
+            engine.setProperty("volume", 1.0)
+            # On Windows prefer a natural-sounding voice
+            voices = engine.getProperty("voices")
+            for v in voices:
+                if "zira" in v.name.lower() or "david" in v.name.lower():
+                    engine.setProperty("voice", v.id)
+                    break
+            self._engine = engine
+            self._enabled = True
+        except Exception:
+            self._enabled = False
+
+    @property
+    def available(self) -> bool:
+        return self._engine is not None
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    def toggle(self) -> bool:
+        if not self.available:
+            return False
+        self._enabled = not self._enabled
+        return self._enabled
+
+    def speak(self, text: str) -> None:
+        if not self._enabled or not self._engine:
+            return
+        # Strip markdown symbols so they aren't read aloud
+        clean = re.sub(r"[*_`#>\-]+", " ", text)
+        clean = re.sub(r"\s+", " ", clean).strip()
+        if not clean:
+            return
+        with self._lock:
+            try:
+                self._engine.say(clean)
+                self._engine.runAndWait()
+            except Exception:
+                pass
+
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+
 def setup_logging(verbose: bool) -> None:
     level = logging.DEBUG if verbose else logging.WARNING
     logging.basicConfig(
@@ -58,6 +118,8 @@ def setup_logging(verbose: bool) -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
+
+# ── Build ─────────────────────────────────────────────────────────────────────
 
 def build_jarvis(verbose: bool = False) -> tuple[JarvisOrchestrator, AgentRegistry]:
     setup_logging(verbose)
@@ -76,20 +138,31 @@ def build_jarvis(verbose: bool = False) -> tuple[JarvisOrchestrator, AgentRegist
     return orchestrator, registry
 
 
-async def run_chat(orchestrator: JarvisOrchestrator, registry: AgentRegistry) -> None:
+# ── Main chat loop ────────────────────────────────────────────────────────────
+
+async def run_chat(
+    orchestrator: JarvisOrchestrator,
+    registry: AgentRegistry,
+    voice: VoiceEngine,
+) -> None:
     user_name = orchestrator.user_name
 
-    # Banner
     console.print(BANNER, style="bold cyan", highlight=False)
+
+    voice_status = "[green]ON[/green]" if voice.enabled else "[dim]OFF[/dim]"
+    if not voice.available:
+        voice_status = "[dim]unavailable — pip install pyttsx3[/dim]"
+
     console.print(
         Panel(
-            f"[bold green]Jarvis online.[/bold green] "
+            f"[bold green]Jarvis online.[/bold green]  "
+            f"Voice: {voice_status}\n"
             f"[dim]{len(registry.agents)} agents loaded: "
             f"{', '.join(registry.agent_names())}[/dim]",
             border_style="green",
         )
     )
-    console.print('[dim]Type "help" for commands or just ask naturally. "exit" to quit.[/dim]\n')
+    console.print('[dim]Type "help" for commands or just talk naturally. "exit" to quit.[/dim]\n')
 
     while True:
         try:
@@ -101,10 +174,12 @@ async def run_chat(orchestrator: JarvisOrchestrator, registry: AgentRegistry) ->
         if not user_input:
             continue
 
-        cmd = user_input.lower()
+        cmd = user_input.lower().strip()
 
         if cmd in ("exit", "quit", "bye"):
-            console.print("[dim]Signing off. Goodbye, Boss.[/dim]")
+            farewell = "Signing off. Goodbye, Boss."
+            console.print(f"[dim]{farewell}[/dim]")
+            voice.speak(farewell)
             break
 
         if cmd == "help":
@@ -121,7 +196,16 @@ async def run_chat(orchestrator: JarvisOrchestrator, registry: AgentRegistry) ->
             console.print(Panel("\n".join(f"• {n}" for n in names), title="Loaded Agents"))
             continue
 
-        # Stream Jarvis's response
+        if cmd in ("voice on", "voice off"):
+            if not voice.available:
+                console.print("[yellow]Voice not available. Run: pip install pyttsx3[/yellow]")
+            else:
+                now_on = voice.toggle()
+                state = "ON" if now_on else "OFF"
+                console.print(f"[dim]Voice output {state}.[/dim]")
+            continue
+
+        # ── Stream Jarvis's response ──────────────────────────────────────
         console.print(Rule(style="dim"))
         console.print("[bold green]Jarvis:[/bold green] ", end="")
         try:
@@ -129,17 +213,25 @@ async def run_chat(orchestrator: JarvisOrchestrator, registry: AgentRegistry) ->
             async for chunk in orchestrator.chat(user_input):
                 console.print(chunk, end="", markup=False, highlight=False)
                 response_parts.append(chunk)
-            console.print()  # newline after stream
-        except anthropic_import_error():
-            console.print("[red]Anthropic API key not set. Set ANTHROPIC_API_KEY env var.[/red]")
+            console.print()
+
+            full_response = "".join(response_parts)
+            if full_response:
+                # Speak in a background thread so the terminal stays responsive
+                threading.Thread(
+                    target=voice.speak, args=(full_response,), daemon=True
+                ).start()
+
         except Exception as exc:
             console.print(f"\n[red]Error: {exc}[/red]")
             logging.getLogger(__name__).exception("Chat error")
+
         console.print()
 
 
-def anthropic_import_error():
-    """Return the AuthenticationError class if available, else a dummy."""
+# ── Entry point ───────────────────────────────────────────────────────────────
+
+def anthropic_auth_error():
     try:
         from anthropic import AuthenticationError
         return AuthenticationError
@@ -152,10 +244,9 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Jarvis AI Assistant")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug logging")
+    parser.add_argument("--no-voice", action="store_true", help="Disable voice output")
     parser.add_argument(
-        "--once",
-        "-q",
-        metavar="QUERY",
+        "--once", "-q", metavar="QUERY",
         help="Run a single query non-interactively and exit",
     )
     args = parser.parse_args()
@@ -171,6 +262,10 @@ def main() -> None:
         )
         sys.exit(1)
 
+    voice = VoiceEngine()
+    if args.no_voice:
+        voice._enabled = False
+
     orchestrator, registry = build_jarvis(verbose=args.verbose)
 
     if args.once:
@@ -178,10 +273,9 @@ def main() -> None:
             async for chunk in orchestrator.chat(args.once):
                 print(chunk, end="", flush=True)
             print()
-
         asyncio.run(_once())
     else:
-        asyncio.run(run_chat(orchestrator, registry))
+        asyncio.run(run_chat(orchestrator, registry, voice))
 
 
 if __name__ == "__main__":

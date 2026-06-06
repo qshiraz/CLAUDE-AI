@@ -8,12 +8,12 @@ jarvis:
   user_name: "Boss"
   # Location settings used across weather, traffic, flights
   location:
-    city: "Lahore"
-    country: "PK"
-    latitude: 31.5497
-    longitude: 74.3436
-    timezone: "Asia/Karachi"
-    iata_airport: "LHE"   # nearest major airport
+    city: "Mombasa"
+    country: "KE"
+    latitude: -4.0435
+    longitude: 39.6682
+    timezone: "Africa/Nairobi"
+    iata_airport: "MBA"   # Moi International Airport
 
 claude:
   model: "claude-opus-4-8"
@@ -31,7 +31,7 @@ news:
   enabled: true
   api_key: "YOUR_NEWSAPI_KEY"
   # Free tier: https://newsapi.org/
-  country: "pk"
+  country: "ke"
   page_size: 10
 
 email:

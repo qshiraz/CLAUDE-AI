@@ -748,16 +748,7 @@ const synth=window.speechSynthesis;
 let ttsVoice=null;
 function loadVoice(){
   const vs=synth.getVoices();
-  // Prefer deep British male — JARVIS-like
-  ttsVoice=
-    vs.find(v=>v.name==='Daniel')||                                                      // macOS UK male
-    vs.find(v=>v.name.includes('Google UK English Male'))||
-    vs.find(v=>v.name.toLowerCase().includes('male')&&v.lang==='en-GB')||
-    vs.find(v=>v.lang==='en-GB')||
-    vs.find(v=>v.name.toLowerCase().includes('male')&&v.lang.startsWith('en-'))||
-    vs.find(v=>v.name.toLowerCase().includes('david'))||                                 // Windows English male
-    vs.find(v=>v.lang.startsWith('en-')&&!v.name.toLowerCase().includes('female'))||
-    vs.find(v=>v.lang.startsWith('en-'))||vs[0];
+  ttsVoice=vs.find(v=>v.lang.startsWith('en-')&&v.name.toLowerCase().includes('google'))||vs.find(v=>v.lang.startsWith('en-'))||vs[0];
 }
 if(synth.onvoiceschanged!==undefined)synth.onvoiceschanged=loadVoice;
 setTimeout(loadVoice,500);
@@ -768,7 +759,7 @@ function speak(text){
   if(!clean)return;
   const u=new SpeechSynthesisUtterance(clean);
   if(ttsVoice)u.voice=ttsVoice;
-  u.rate=0.88;u.pitch=0.55;u.volume=1;  // deep, deliberate JARVIS voice
+  u.rate=0.92;u.pitch=0.85;u.volume=1;
   synth.speak(u);
 }
 function toggleVoice(){

@@ -1,19 +1,19 @@
 """Hikvision DVR/NVR direct agent — connects via public IP using ISAPI.
 
-No cloud account, no API key, no developer registration needed.
-Works with any Hikvision or Hikvision-compatible DVR/NVR with a public IP.
-
 Add to config.local.yaml:
   camera:
     dvr_ip: "41.84.157.45"
     dvr_username: "admin"
-    dvr_password: "your_dvr_password"
-    num_channels: 4
+    dvr_password: "your_password"
+    channels:
+      1: "Front Gate"
+      2: "Parking"
+      3: "Main Entrance"
+      4: "Server Room"
 """
 
 import base64
 import json
-import time
 from datetime import datetime
 from typing import Any
 
@@ -26,18 +26,30 @@ from jarvis.agents.base_agent import BaseAgent
 class CameraAgent(BaseAgent):
     name = "camera"
     description = (
-        "Connects directly to Hikvision DVR/NVR via its public IP address. "
-        "Fetches live snapshots from any channel and analyses scenes with AI vision."
+        "Connects directly to the Videoteknika/Hikvision DVR via its public IP. "
+        "Lists cameras by name, fetches live snapshots, and analyses scenes with AI."
     )
 
     def __init__(self, cfg: dict, global_cfg: dict) -> None:
         super().__init__(cfg, global_cfg)
-        self._ip: str       = cfg.get("dvr_ip", "")
-        self._user: str     = cfg.get("dvr_username", "admin")
-        self._pass: str     = cfg.get("dvr_password", "")
-        self._channels: int = int(cfg.get("num_channels", 4))
-        self._port: int     = int(cfg.get("port", 80))
-        self._base: str     = f"http://{self._ip}:{self._port}" if self._port != 80 else f"http://{self._ip}"
+        self._ip   = cfg.get("dvr_ip", "")
+        self._user = cfg.get("dvr_username", "admin")
+        self._pwd  = cfg.get("dvr_password", "")
+        self._port = int(cfg.get("port", 80))
+        self._base = f"http://{self._ip}" if self._port == 80 else f"http://{self._ip}:{self._port}"
+
+        # Named channels: {channel_num: name}
+        raw = cfg.get("channels", {})
+        if isinstance(raw, dict):
+            self._named = {int(k): v for k, v in raw.items()}
+        else:
+            # If channels is a list like [{id:1, name:"Front Gate"}]
+            self._named = {c["id"]: c["name"] for c in raw if "id" in c}
+
+        # Fallback: generate Channel N names up to num_channels
+        num = int(cfg.get("num_channels", max(self._named.keys(), default=4)))
+        for i in range(1, num + 1):
+            self._named.setdefault(i, f"Channel {i}")
 
     # ── Tools ────────────────────────────────────────────────────────────────
 
@@ -45,58 +57,54 @@ class CameraAgent(BaseAgent):
         return [
             {
                 "name": "list_cameras",
-                "description": "Lists all camera channels on the DVR/NVR with their status.",
+                "description": "Lists all cameras by name with their live status.",
                 "input_schema": {"type": "object", "properties": {}},
             },
             {
-                "name": "get_camera_snapshot",
-                "description": "Captures a live snapshot from a DVR channel.",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "integer",
-                            "description": "Channel number (1, 2, 3, 4...)",
-                        },
-                    },
-                    "required": ["channel"],
-                },
-            },
-            {
-                "name": "analyze_camera",
+                "name": "show_camera",
                 "description": (
-                    "Captures a live snapshot from a DVR channel and uses AI vision "
-                    "to describe what is happening — people, vehicles, security concerns."
+                    "Shows a live feed from a named camera. "
+                    "Use this when the user asks to see a specific camera by name."
                 ),
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "channel": {
-                            "type": "integer",
-                            "description": "Channel number (1, 2, 3, 4...)",
+                        "camera_name": {
+                            "type": "string",
+                            "description": "Camera name e.g. 'Front Gate', 'Parking', or channel number",
+                        },
+                    },
+                    "required": ["camera_name"],
+                },
+            },
+            {
+                "name": "analyze_camera",
+                "description": "Captures a live snapshot and uses AI vision to describe the scene.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "camera_name": {
+                            "type": "string",
+                            "description": "Camera name or channel number",
                         },
                         "focus": {
                             "type": "string",
                             "enum": ["security", "people", "vehicles", "general"],
                         },
                     },
-                    "required": ["channel"],
+                    "required": ["camera_name"],
                 },
             },
             {
                 "name": "get_rtsp_url",
-                "description": "Returns the RTSP stream URL for a DVR channel (open in VLC).",
+                "description": "Returns the RTSP stream URL for VLC or other players.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "channel": {"type": "integer"},
-                        "stream": {
-                            "type": "string",
-                            "enum": ["main", "sub"],
-                            "description": "main = high quality, sub = low bandwidth",
-                        },
+                        "camera_name": {"type": "string"},
+                        "stream": {"type": "string", "enum": ["main", "sub"]},
                     },
-                    "required": ["channel"],
+                    "required": ["camera_name"],
                 },
             },
         ]
@@ -104,129 +112,132 @@ class CameraAgent(BaseAgent):
     # ── Dispatch ─────────────────────────────────────────────────────────────
 
     def handle(self, tool_name: str, tool_input: dict[str, Any]) -> str:
-        if tool_name == "list_cameras":       return self._list()
-        if tool_name == "get_camera_snapshot": return self._snapshot(tool_input)
-        if tool_name == "analyze_camera":     return self._analyze(tool_input)
-        if tool_name == "get_rtsp_url":       return self._rtsp(tool_input)
+        if tool_name == "list_cameras":  return self._list()
+        if tool_name == "show_camera":   return self._show(tool_input)
+        if tool_name == "analyze_camera": return self._analyze(tool_input)
+        if tool_name == "get_rtsp_url":  return self._rtsp(tool_input)
         return f"Unknown tool: {tool_name}"
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _no_cfg(self) -> str:
         return json.dumps({
-            "error": "DVR IP/credentials not configured.",
-            "fix": (
-                "Add to config.local.yaml:\n"
-                "camera:\n"
-                "  dvr_ip: '41.84.157.45'\n"
-                "  dvr_username: 'admin'\n"
-                "  dvr_password: 'your_password'\n"
-                "  num_channels: 4"
-            ),
+            "error": "DVR not configured.",
+            "fix": "Add dvr_ip, dvr_username, dvr_password, and channels to config.local.yaml under camera:",
         })
 
-    def _fetch_snapshot(self, channel: int) -> bytes | None:
-        """Fetch snapshot via Hikvision ISAPI — tries Basic then Digest auth."""
-        # ISAPI snapshot endpoint
-        url = f"{self._base}/ISAPI/Streaming/channels/{channel}01/picture"
-        for auth in (HTTPDigestAuth(self._user, self._pass),
-                     HTTPBasicAuth(self._user, self._pass)):
-            try:
-                resp = requests.get(url, auth=auth, timeout=10, stream=True)
-                if resp.status_code == 200 and "image" in resp.headers.get("Content-Type", ""):
-                    return resp.content
-            except Exception:
-                continue
+    def _find_channel(self, name: str) -> int | None:
+        """Find channel number by name or number string."""
+        # Direct number
+        try:
+            ch = int(name)
+            if ch in self._named:
+                return ch
+        except ValueError:
+            pass
+        # Name match (case-insensitive, partial ok)
+        low = name.lower().strip()
+        for ch, nm in self._named.items():
+            if low in nm.lower() or nm.lower() in low:
+                return ch
+        return None
 
-        # Fallback: older CGI snapshot endpoint
-        cgi_url = f"{self._base}/cgi-bin/snapshot.cgi?channel={channel}"
-        for auth in (HTTPDigestAuth(self._user, self._pass),
-                     HTTPBasicAuth(self._user, self._pass)):
-            try:
-                resp = requests.get(cgi_url, auth=auth, timeout=10)
-                if resp.status_code == 200 and len(resp.content) > 1000:
-                    return resp.content
-            except Exception:
-                continue
+    def _snapshot(self, channel: int) -> bytes | None:
+        urls = [
+            f"{self._base}/ISAPI/Streaming/channels/{channel}01/picture",
+            f"{self._base}/cgi-bin/snapshot.cgi?channel={channel}",
+        ]
+        for url in urls:
+            for auth in (HTTPDigestAuth(self._user, self._pwd),
+                         HTTPBasicAuth(self._user, self._pwd)):
+                try:
+                    r = requests.get(url, auth=auth, timeout=8)
+                    if r.status_code == 200 and len(r.content) > 500:
+                        return r.content
+                except Exception:
+                    continue
         return None
 
     # ── Implementations ───────────────────────────────────────────────────────
 
     def _list(self) -> str:
-        if not self._ip or not self._pass:
+        if not self._ip or not self._pwd:
             return self._no_cfg()
-        channels = []
-        for ch in range(1, self._channels + 1):
-            img = self._fetch_snapshot(ch)
-            channels.append({
-                "channel": ch,
-                "name": f"Channel {ch}",
-                "status": "ONLINE" if img else "OFFLINE/NO SIGNAL",
-                "rtsp_main": f"rtsp://{self._user}:{self._pass}@{self._ip}:554/Streaming/Channels/{ch}01",
+        cameras = []
+        for ch, name in sorted(self._named.items()):
+            img = self._snapshot(ch)
+            cameras.append({
+                "channel":    ch,
+                "name":       name,
+                "status":     "ONLINE" if img else "OFFLINE",
+                "stream_url": f"/api/cameras/stream/{ch}",
             })
-        online = sum(1 for c in channels if "ONLINE" in c["status"])
+        online = sum(1 for c in cameras if c["status"] == "ONLINE")
         return json.dumps({
-            "dvr_ip":  self._ip,
-            "channels": channels,
+            "cameras": cameras,
             "online":  online,
-            "total":   self._channels,
+            "total":   len(cameras),
+            "dvr_ip":  self._ip,
         })
 
-    def _snapshot(self, inp: dict) -> str:
-        if not self._ip or not self._pass:
+    def _show(self, inp: dict) -> str:
+        if not self._ip or not self._pwd:
             return self._no_cfg()
-        ch = int(inp.get("channel", 1))
-        img = self._fetch_snapshot(ch)
-        if not img:
+        ch = self._find_channel(inp["camera_name"])
+        if ch is None:
+            names = list(self._named.values())
             return json.dumps({
-                "error": f"Channel {ch} did not return an image.",
-                "hint": "Check DVR password and that the channel has a connected camera.",
+                "error": f"Camera '{inp['camera_name']}' not found.",
+                "available": names,
             })
+        name = self._named[ch]
         return json.dumps({
-            "channel":   ch,
-            "timestamp": datetime.now().isoformat(),
-            "size_kb":   round(len(img) / 1024, 1),
-            "status":    "captured",
+            "action":      "show_feed",
+            "channel":     ch,
+            "camera_name": name,
+            "stream_url":  f"/api/cameras/stream/{ch}",
+            "snapshot_url": f"/api/cameras/snapshot/{ch}",
+            "message": f"Switching to {name} — Channel {ch}. Live feed is now active.",
         })
 
     def _analyze(self, inp: dict) -> str:
-        if not self._ip or not self._pass:
+        if not self._ip or not self._pwd:
             return self._no_cfg()
-        ch = int(inp.get("channel", 1))
-        img = self._fetch_snapshot(ch)
+        ch = self._find_channel(inp["camera_name"])
+        if ch is None:
+            return json.dumps({"error": f"Camera '{inp['camera_name']}' not found."})
+        img = self._snapshot(ch)
+        name = self._named[ch]
         if not img:
-            return json.dumps({
-                "error": f"Could not fetch snapshot from channel {ch}.",
-                "hint": "Verify DVR password and channel has a camera connected.",
-            })
+            return json.dumps({"error": f"{name} is offline or not returning images."})
         b64 = base64.b64encode(img).decode()
         focus = inp.get("focus", "security")
         prompts = {
             "security": "Identify security concerns: intruders, suspicious activity, unauthorized access.",
-            "people":   "Describe all people visible — clothing, activity, direction of movement.",
+            "people":   "Describe all people — clothing, activity, direction of movement.",
             "vehicles": "Identify vehicles — type, colour, licence plate if visible.",
             "general":  "Describe the full scene in detail.",
         }
         return json.dumps({
             "channel":   ch,
-            "dvr_ip":    self._ip,
+            "camera":    name,
             "timestamp": datetime.now().isoformat(),
             "image_base64": b64,
             "analysis_instruction": (
-                f"Analyse this live security camera image from channel {ch} "
-                f"at the remote site ({self._ip}). "
-                f"{prompts.get(focus, prompts['general'])} "
-                "Be specific and note any anomalies."
+                f"Analyse this live security camera image from '{name}' (Channel {ch}). "
+                f"{prompts.get(focus, prompts['general'])} Be specific and note any anomalies."
             ),
         })
 
     def _rtsp(self, inp: dict) -> str:
-        ch = int(inp.get("channel", 1))
+        ch = self._find_channel(inp["camera_name"])
+        if ch is None:
+            return json.dumps({"error": "Camera not found."})
         stream = "01" if inp.get("stream", "main") == "main" else "02"
-        url = f"rtsp://{self._user}:{self._pass}@{self._ip}:554/Streaming/Channels/{ch}{stream}"
+        name = self._named[ch]
         return json.dumps({
-            "channel":    ch,
-            "rtsp_url":   url,
-            "vlc_tip":    "Open VLC → Media → Open Network Stream → paste the URL",
-            "dashboard":  f"http://{self._ip}/doc/page/preview.asp",
+            "camera":   name,
+            "channel":  ch,
+            "rtsp_url": f"rtsp://{self._user}:{self._pwd}@{self._ip}:554/Streaming/Channels/{ch}{stream}",
+            "tip":      "Open VLC → Media → Open Network Stream → paste URL",
         })

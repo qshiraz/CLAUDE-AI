@@ -5,24 +5,32 @@
 <title>JARVIS OS — Stark Industries</title>
 <style>
 :root{
-  --bg:#010c18; --panel:rgba(0,20,45,0.85); --b:#0a3d6b;
-  --c:#00b4ff; --bright:#44ddff; --dim:rgba(0,150,220,0.4);
-  --white:#d0eeff; --red:#ff2244; --green:#00ff88; --yellow:#ffaa00;
-  --glow:0 0 12px rgba(0,180,255,0.6); --glow2:0 0 30px rgba(0,180,255,0.35);
+  --bg:#000510; --panel:rgba(0,8,28,0.82); --b:#0a2a5a;
+  --c:#00e5ff; --bright:#66f0ff; --dim:rgba(0,200,255,0.35);
+  --c2:#7b2fff; --c2dim:rgba(123,47,255,0.35);
+  --white:#d8f4ff; --red:#ff2244; --green:#00ff88; --yellow:#ffaa00;
+  --glow:0 0 14px rgba(0,229,255,0.65); --glow2:0 0 36px rgba(0,229,255,0.4);
+  --glow-purple:0 0 14px rgba(123,47,255,0.7);
+  --glass:rgba(0,15,40,0.72);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;background:var(--bg);color:var(--c);font-family:'Courier New',monospace;font-size:11px;overflow:hidden;}
 
-/* Grid bg */
+/* Circuit board / hex grid bg */
 body::before{content:'';position:fixed;inset:0;z-index:0;
-  background-image:linear-gradient(rgba(0,100,180,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(0,100,180,0.06) 1px,transparent 1px);
-  background-size:40px 40px;}
+  background-image:
+    linear-gradient(rgba(0,229,255,0.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,229,255,0.04) 1px,transparent 1px),
+    radial-gradient(circle at 20% 35%, rgba(123,47,255,0.07) 0%, transparent 55%),
+    radial-gradient(circle at 80% 65%, rgba(0,229,255,0.06) 0%, transparent 55%);
+  background-size:40px 40px,40px 40px,100% 100%,100% 100%;}
 
 /* Scanline */
-.scan{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;
-  background:linear-gradient(90deg,transparent,rgba(0,180,255,0.2),transparent);
-  animation:scan 6s linear infinite;}
-@keyframes scan{0%{top:0}100%{top:100vh}}
+.scan{position:fixed;left:0;right:0;height:3px;z-index:1;pointer-events:none;
+  background:linear-gradient(90deg,transparent 0%,rgba(0,229,255,0.1) 20%,rgba(0,229,255,0.35) 50%,rgba(0,229,255,0.1) 80%,transparent 100%);
+  filter:blur(1px);
+  animation:scan 8s linear infinite;}
+@keyframes scan{0%{top:-4px}100%{top:100vh}}
 
 /* CRT */
 body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
@@ -33,8 +41,10 @@ body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
 
 /* ═══ TOP BAR ══════════════════════════════════════════ */
 .topbar{display:flex;align-items:center;justify-content:space-between;
-  padding:4px 14px;border:1px solid var(--b);background:var(--panel);
-  box-shadow:var(--glow);flex-shrink:0;}
+  padding:4px 14px;border:1px solid rgba(0,100,180,0.4);
+  background:linear-gradient(90deg,rgba(0,5,20,0.95) 0%,rgba(0,10,35,0.9) 50%,rgba(0,5,20,0.95) 100%);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:var(--glow),inset 0 -1px 0 rgba(0,229,255,0.15);flex-shrink:0;}
 .logo-text{font-size:15px;font-weight:bold;letter-spacing:8px;text-shadow:var(--glow);}
 .logo-sub{font-size:8px;letter-spacing:4px;color:var(--dim);margin-top:1px;}
 .top-stats{display:flex;gap:20px;align-items:center;}
@@ -44,19 +54,29 @@ body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
 .top-right{display:flex;align-items:center;gap:16px;}
 .big-clock{font-size:22px;letter-spacing:4px;text-shadow:var(--glow);font-weight:bold;}
 .date-str{font-size:9px;letter-spacing:2px;color:var(--dim);}
-.dot-live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);
-  box-shadow:0 0 6px var(--green);animation:pdot 2s ease-in-out infinite;margin-right:4px;}
-@keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.dot-live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 8px var(--green),0 0 16px rgba(0,255,136,0.4);
+  animation:pdot 1.6s ease-in-out infinite;margin-right:4px;}
+@keyframes pdot{0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 8px var(--green),0 0 16px rgba(0,255,136,0.4);}50%{opacity:.5;transform:scale(.65);box-shadow:0 0 4px var(--green);}}
 
 /* ═══ MAIN 3-COL ════════════════════════════════════════ */
 .main{flex:1;display:grid;grid-template-columns:200px 1fr 220px;gap:4px;min-height:0;}
 
 /* ── Panel base ── */
-.pn{border:1px solid var(--b);background:var(--panel);position:relative;overflow:hidden;display:flex;flex-direction:column;padding:7px 8px;}
-.pn::before,.pn::after{content:'';position:absolute;width:12px;height:12px;border-color:var(--c);border-style:solid;}
-.pn::before{top:3px;left:3px;border-width:2px 0 0 2px;}
-.pn::after{bottom:3px;right:3px;border-width:0 2px 2px 0;}
-.pn-title{font-size:8px;letter-spacing:3px;color:var(--c);text-shadow:var(--glow);margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid rgba(0,120,200,0.2);flex-shrink:0;}
+.pn{border:1px solid rgba(0,100,180,0.35);background:var(--glass);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  position:relative;overflow:hidden;display:flex;flex-direction:column;padding:7px 8px;
+  box-shadow:inset 0 0 30px rgba(0,229,255,0.03),0 2px 12px rgba(0,0,0,0.5);}
+/* Double-line corner accents */
+.pn::before,.pn::after{content:'';position:absolute;border-color:var(--c);border-style:solid;}
+.pn::before{top:3px;left:3px;width:14px;height:14px;border-width:2px 0 0 2px;box-shadow:-1px -1px 0 rgba(0,229,255,0.2);}
+.pn::after{bottom:3px;right:3px;width:14px;height:14px;border-width:0 2px 2px 0;box-shadow:1px 1px 0 rgba(0,229,255,0.2);}
+/* Inner corner marks */
+.pn .pn-inner-tl,.pn .pn-inner-br{content:'';position:absolute;width:7px;height:7px;border-color:var(--c2);border-style:solid;opacity:0.5;}
+.pn-title{font-size:8px;letter-spacing:3px;color:var(--c);text-shadow:var(--glow);
+  margin-bottom:5px;padding-bottom:4px;padding-left:7px;
+  border-bottom:1px solid rgba(0,180,255,0.15);
+  border-left:2px solid var(--c);flex-shrink:0;}
 
 /* ═══ LEFT COLUMN ════════════════════════════════════════ */
 .left-col{display:flex;flex-direction:column;gap:4px;}
@@ -81,7 +101,7 @@ canvas.graph{width:100%;height:60px;display:block;}
 /* Arc Reactor panel */
 .reactor-pn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
 
-.reactor-wrap{position:relative;width:260px;height:260px;display:flex;align-items:center;justify-content:center;}
+.reactor-wrap{position:relative;width:220px;height:220px;display:flex;align-items:center;justify-content:center;}
 
 .reactor-svg{position:absolute;inset:0;width:100%;height:100%;}
 
@@ -129,9 +149,12 @@ canvas.graph{width:100%;height:60px;display:block;}
 .mbtn{background:none;border:1px solid rgba(0,100,180,0.4);color:var(--dim);padding:5px 8px;cursor:pointer;font-size:12px;transition:all .2s;}
 .mbtn.on{color:var(--green);border-color:var(--green);box-shadow:0 0 8px rgba(0,255,136,.5);animation:mpulse .8s ease-in-out infinite;}
 @keyframes mpulse{0%,100%{box-shadow:0 0 8px rgba(0,255,136,.5)}50%{box-shadow:0 0 18px rgba(0,255,136,.9)}}
-.sbtn{background:rgba(0,80,160,0.3);border:1px solid rgba(0,140,220,0.5);color:var(--c);
-  padding:5px 12px;cursor:pointer;font-family:monospace;font-size:10px;letter-spacing:2px;transition:all .2s;}
-.sbtn:hover{background:rgba(0,100,200,0.4);box-shadow:var(--glow);}
+.sbtn{background:linear-gradient(135deg,rgba(0,80,160,0.4) 0%,rgba(0,60,140,0.5) 100%);
+  border:1px solid rgba(0,180,255,0.45);color:var(--c);
+  padding:5px 12px;cursor:pointer;font-family:monospace;font-size:10px;letter-spacing:2px;
+  transition:all .2s;text-shadow:0 0 6px rgba(0,229,255,0.5);}
+.sbtn:hover{background:linear-gradient(135deg,rgba(0,100,220,0.55) 0%,rgba(0,80,200,0.65) 100%);
+  box-shadow:var(--glow),inset 0 0 12px rgba(0,229,255,0.1);border-color:var(--c);}
 .vbtn{background:none;border:1px solid rgba(0,100,180,0.4);color:var(--dim);padding:5px 8px;cursor:pointer;font-size:12px;transition:all .2s;}
 .vbtn.on{color:var(--green);border-color:var(--green);}
 
@@ -162,8 +185,10 @@ canvas.graph{width:100%;height:60px;display:block;}
 
 /* ═══ BOTTOM BAR ════════════════════════════════════════ */
 .bottombar{display:flex;align-items:center;justify-content:space-between;
-  padding:4px 16px;border:1px solid var(--b);background:var(--panel);
-  box-shadow:var(--glow);flex-shrink:0;}
+  padding:4px 16px;border:1px solid rgba(0,100,180,0.4);
+  background:linear-gradient(90deg,rgba(0,5,20,0.95) 0%,rgba(0,10,35,0.9) 50%,rgba(0,5,20,0.95) 100%);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:var(--glow),inset 0 1px 0 rgba(0,229,255,0.15);flex-shrink:0;}
 .stark-logo{font-size:12px;letter-spacing:6px;color:var(--c);text-shadow:var(--glow);font-weight:bold;}
 .bottom-stats{display:flex;gap:20px;}
 .b-stat{font-size:9px;letter-spacing:1px;color:var(--dim);}
@@ -180,6 +205,31 @@ canvas.graph{width:100%;height:60px;display:block;}
 .listening .reactor-status{color:var(--green);animation:none;}
 
 .loading{color:var(--dim);font-size:9px;letter-spacing:2px;animation:blink 1s step-end infinite;}
+
+/* ═══ CAMERA LIST ══════════════════════════════════════════ */
+.cam-list-row{display:flex;align-items:center;gap:6px;padding:4px 2px;
+  border-bottom:1px solid rgba(0,80,150,0.12);cursor:pointer;transition:background .15s;}
+.cam-list-row:hover{background:rgba(0,180,255,0.07);}
+.cam-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.cam-dot.online{background:var(--green);box-shadow:0 0 6px var(--green);animation:pdot 2s ease-in-out infinite;}
+.cam-dot.offline{background:var(--red);box-shadow:0 0 5px var(--red);}
+.cam-name{font-size:9px;color:var(--white);letter-spacing:1px;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.cam-name.active-cam{color:var(--c);text-shadow:var(--glow);}
+.cam-live-badge{font-size:7px;letter-spacing:1px;color:var(--green);border:1px solid rgba(0,255,136,0.4);
+  padding:1px 4px;flex-shrink:0;}
+.cam-offline-badge{font-size:7px;letter-spacing:1px;color:var(--red);border:1px solid rgba(255,34,68,0.4);padding:1px 4px;flex-shrink:0;}
+
+/* ═══ ACTIVE CAMERA VIEW ═══════════════════════════════════ */
+.cam-view-pn{flex-shrink:0;position:relative;overflow:hidden;}
+.cam-view-header{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid rgba(0,180,255,0.15);}
+.cam-view-title{font-size:8px;letter-spacing:3px;color:var(--c);text-shadow:var(--glow);padding-left:7px;border-left:2px solid var(--c);}
+.cam-analyze-btn{font-size:7px;letter-spacing:1px;background:rgba(123,47,255,0.2);
+  border:1px solid rgba(123,47,255,0.5);color:rgba(180,130,255,0.9);
+  padding:2px 7px;cursor:pointer;transition:all .2s;font-family:monospace;}
+.cam-analyze-btn:hover{background:rgba(123,47,255,0.35);box-shadow:var(--glow-purple);}
+#active-cam-img{width:100%;height:130px;object-fit:cover;display:block;
+  border:1px solid rgba(0,180,255,0.2);background:#000510;}
 </style>
 </head>
 <body>
@@ -247,30 +297,35 @@ canvas.graph{width:100%;height:60px;display:block;}
       </div>
     </div>
 
-    <div class="pn" style="flex:1">
-      <div class="pn-title">◈ TRAFFIC</div>
-      <div id="traffic-mini"><div class="loading">LOADING...</div></div>
-    </div>
-
     <div class="pn" style="flex:2;overflow:hidden;">
       <div class="pn-title" style="display:flex;justify-content:space-between;align-items:center;">
-        <span>◈ LIVE CAMERAS</span>
-        <span id="cam-status" style="font-size:8px;color:var(--dim);">STANDBY</span>
+        <span style="padding-left:0;border-left:none;">◈ CAMERA FEEDS</span>
+        <span id="cam-list-status" style="font-size:8px;color:var(--dim);">STANDBY</span>
       </div>
-      <div id="cam-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:3px;"></div>
-      <div id="cam-offline" style="font-size:9px;color:var(--dim);display:none;">
-        Add DVR credentials to config.local.yaml to enable cameras.
+      <div id="cam-list" style="overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--b) transparent;">
+        <div class="loading">LOADING...</div>
       </div>
-      <button class="sbtn" id="cam-load-btn" onclick="loadCameras()"
-        style="margin-top:4px;font-size:8px;letter-spacing:1px;width:100%;display:none;">
-        ◈ LOAD CAMERAS
-      </button>
     </div>
 
   </div>
 
-  <!-- CENTER: Arc Reactor + Chat -->
+  <!-- CENTER: Camera View + Arc Reactor + Chat -->
   <div class="center-col">
+
+    <!-- Active Camera View -->
+    <div class="pn cam-view-pn">
+      <div class="cam-view-header">
+        <span class="cam-view-title" id="active-cam-title">◈ CAMERA — NO FEED</span>
+        <button class="cam-analyze-btn" onclick="analyzeCam()">◈ ANALYZING...</button>
+      </div>
+      <img id="active-cam-img" src="" alt="Camera Feed" onerror="this.style.opacity=0.3">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px;">
+        <span style="font-size:7px;letter-spacing:2px;color:var(--dim);" id="cam-traffic-inline">
+          TRAFFIC: <span id="traffic-inline-val" style="color:var(--white);">--</span>
+        </span>
+        <span style="font-size:7px;letter-spacing:1px;color:var(--green);animation:pdot 1.6s ease-in-out infinite;" id="cam-live-ind">● LIVE</span>
+      </div>
+    </div>
 
     <div class="pn reactor-pn" id="core-wrap">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid rgba(0,80,150,0.2);">
@@ -450,9 +505,10 @@ canvas.graph{width:100%;height:60px;display:block;}
     <div style="font-size:7px;letter-spacing:3px;color:var(--dim);margin-top:1px;">AI COMMAND CENTER — AUTHORIZED ACCESS ONLY</div>
   </div>
   <div class="bottom-stats">
-    <div class="b-stat">FLIGHTS NEARBY: <span id="b-flights">--</span></div>
+    <div class="b-stat">FLIGHTS: <span id="b-flights">--</span></div>
     <div class="b-stat">EMAIL: <span id="b-email">--</span></div>
     <div class="b-stat">CAMERAS: <span id="b-cameras">--</span></div>
+    <div class="b-stat">TRAFFIC: <span id="b-traffic">--</span></div>
     <div class="b-stat">UPTIME: <span id="b-uptime">00:00:00</span></div>
   </div>
   <div style="font-size:8px;letter-spacing:2px;color:var(--dim);">v2.0 · JARVIS OS</div>
@@ -730,7 +786,18 @@ function sendMsg(){
         div.querySelector('.txt').textContent=full;
         document.getElementById('msgs').scrollTop=9999;
       }else if(d.type==='done'){
-        setThinking(false); speak(full); ws.onmessage=null;
+        setThinking(false); speak(full);
+        // Check if Jarvis response contains a JSON action block
+        try {
+          const jMatch = full.match(/\{[^{}]*"action"\s*:\s*"show_feed"[^{}]*\}/);
+          if (jMatch) {
+            const act = JSON.parse(jMatch[0]);
+            if (act.action === 'show_feed' && act.channel) {
+              switchCamera(act.channel, act.name || `CAM ${act.channel}`);
+            }
+          }
+        } catch(_) {}
+        ws.onmessage=null;
       }else if(d.type==='error'){
         setThinking(false); addMsg('bot','[ERROR] '+d.message); ws.onmessage=null;
       }
@@ -778,15 +845,14 @@ async function fetchNews(){
 async function fetchTraffic(){
   try{
     const d=await fetch('/api/traffic').then(r=>r.json());
-    const el=document.getElementById('traffic-mini');
-    let html='';
     if(d.overall_congestion){
       const lvl=d.overall_congestion.toLowerCase();
-      const cl=lvl.includes('heavy')?'color:var(--red)':lvl.includes('moderate')?'color:var(--yellow)':'color:var(--green)';
-      html+=`<div class="net-row"><span class="net-lbl">OVERALL</span><span style="font-size:9px;${cl}">${d.overall_congestion.toUpperCase()}</span></div>`;
+      const trafficEl=document.getElementById('b-traffic');
+      const inlineEl=document.getElementById('traffic-inline-val');
+      const cl=lvl.includes('heavy')?'var(--red)':lvl.includes('moderate')?'var(--yellow)':'var(--green)';
+      if(trafficEl){trafficEl.textContent=d.overall_congestion.toUpperCase();trafficEl.style.color=cl;}
+      if(inlineEl){inlineEl.textContent=d.overall_congestion.toUpperCase();inlineEl.style.color=cl;}
     }
-    if(d.incidents){d.incidents.slice(0,3).forEach(i=>{html+=`<div class="net-row"><span class="net-lbl" style="max-width:80px;overflow:hidden;">${esc(i.road||'ROAD').substring(0,14)}</span><span class="net-val up">+${i.delay_min}min</span></div>`;});}
-    el.innerHTML=html||'<div class="loading">NO DATA</div>';
   }catch(e){}
 }
 
@@ -822,111 +888,81 @@ async function fetchStatus(){
 function askJarvis(q){document.getElementById('cinput').value=q;sendMsg();}
 
 // ═══════════════════════════════════════════════════════════
-// LIVE CAMERAS — Direct DVR feed
+// CAMERA LIST & ACTIVE CAMERA VIEW
 // ═══════════════════════════════════════════════════════════
-let camerasLoaded = false;
+let activeCamChannel = null;
+let activeCamName = 'NO FEED';
 
-async function loadCameras(){
-  const grid = document.getElementById('cam-grid');
-  const status = document.getElementById('cam-status');
-  status.textContent = 'LOADING...';
-  status.style.color = 'var(--c)';
-  grid.innerHTML = '';
+function switchCamera(channel, name) {
+  activeCamChannel = channel;
+  activeCamName = name;
+  const img = document.getElementById('active-cam-img');
+  const title = document.getElementById('active-cam-title');
+  img.src = `/api/cameras/stream/${channel}`;
+  img.style.opacity = '1';
+  title.textContent = `◈ CAM ${channel} — ${name.toUpperCase()}`;
+  // Update active highlight in list
+  document.querySelectorAll('.cam-name').forEach(el => el.classList.remove('active-cam'));
+  const rows = document.querySelectorAll('.cam-list-row');
+  rows.forEach(row => {
+    if (parseInt(row.dataset.channel) === channel) {
+      row.querySelector('.cam-name').classList.add('active-cam');
+    }
+  });
+  document.getElementById('cam-live-ind').style.display = 'inline';
+}
 
-  // Try to get camera list to know how many channels
+async function loadCameraList() {
+  const listEl = document.getElementById('cam-list');
+  const statusEl = document.getElementById('cam-list-status');
   try {
-    const d = await fetch('/api/cameras').then(r=>r.json());
-    const channels = (d.channels || []);
-    const total = channels.length || 4;
-
-    if (d.error || total === 0) {
-      document.getElementById('cam-offline').style.display = 'block';
-      document.getElementById('cam-load-btn').style.display = 'block';
-      status.textContent = 'NOT CONFIGURED';
-      status.style.color = 'var(--red)';
+    const d = await fetch('/api/cameras').then(r => r.json());
+    const channels = d.channels || d.cameras || [];
+    if (!channels.length) {
+      listEl.innerHTML = '<div style="font-size:9px;color:var(--dim);padding:4px 2px;">No cameras configured.<br><span style="color:var(--c);cursor:pointer;" onclick="askJarvis(\'How do I add a camera?\')">Ask Jarvis →</span></div>';
+      statusEl.textContent = 'NONE';
+      document.getElementById('b-cameras').textContent = '0 CAMS';
+      document.getElementById('cam-live-ind').style.display = 'none';
       return;
     }
+    const onlineCount = channels.filter(c => (c.status||'').toLowerCase() !== 'offline').length;
+    statusEl.textContent = `${onlineCount}/${channels.length} ONLINE`;
+    statusEl.style.color = onlineCount > 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('b-cameras').textContent = channels.length + ' CAM' + (channels.length === 1 ? '' : 'S');
 
-    document.getElementById('cam-offline').style.display = 'none';
-    document.getElementById('cam-load-btn').style.display = 'none';
+    listEl.innerHTML = channels.map(cam => {
+      const ch = cam.channel || cam.id || 1;
+      const nm = cam.name || `CAM ${ch}`;
+      const online = (cam.status || 'online').toLowerCase() !== 'offline';
+      const dotCls = online ? 'online' : 'offline';
+      const badge = online
+        ? `<span class="cam-live-badge">LIVE</span>`
+        : `<span class="cam-offline-badge">OFF</span>`;
+      return `<div class="cam-list-row" data-channel="${ch}" onclick="switchCamera(${ch},'${nm.replace(/'/g,"\\'")}')" title="${esc(nm)} — click to view">
+        <span class="cam-dot ${dotCls}"></span>
+        <span class="cam-name">${esc(nm)}</span>
+        ${badge}
+      </div>`;
+    }).join('');
 
-    // Create image tiles for each channel
-    channels.forEach(cam => {
-      const ch = cam.channel;
-      const tile = document.createElement('div');
-      tile.style.cssText = 'position:relative;background:#000810;cursor:pointer;border:1px solid rgba(0,80,150,0.3);';
-      tile.title = `Channel ${ch} — click to ask Jarvis`;
-      tile.onclick = () => askJarvis(`Analyze channel ${ch} of my cameras and tell me what you see`);
-
-      // Try live MJPEG stream first — if it fails, fall back to refreshing snapshot
-      const img = document.createElement('img');
-      img.style.cssText = 'width:100%;height:70px;object-fit:cover;display:block;';
-      img.src = `/api/cameras/stream/${ch}`;
-      img.onerror = () => {
-        // Fallback: refreshing snapshot every 5s
-        img.src = `/api/cameras/snapshot/${ch}?t=${Date.now()}`;
-        setInterval(() => { img.src = `/api/cameras/snapshot/${ch}?t=${Date.now()}`; }, 5000);
-      };
-
-      const lbl = document.createElement('div');
-      lbl.style.cssText = 'position:absolute;bottom:0;left:0;right:0;font-size:7px;letter-spacing:1px;color:var(--white);background:rgba(0,0,0,0.7);padding:2px 4px;display:flex;justify-content:space-between;';
-      lbl.innerHTML = `<span>CAM ${ch}</span><span style="color:var(--green);">● LIVE</span>`;
-
-      tile.appendChild(img); tile.appendChild(lbl);
-      grid.appendChild(tile);
-    });
-
-    status.textContent = `${total} CHANNELS`;
-    status.style.color = 'var(--green)';
-    camerasLoaded = true;
-
-    // Auto-refresh snapshots every 10 seconds
-    setInterval(() => {
-      grid.querySelectorAll('img').forEach((img, i) => {
-        const ch = (channels[i]||{}).channel || (i+1);
-        img.src = `/api/cameras/snapshot/${ch}?t=${Date.now()}`;
-      });
-    }, 10000);
-
+    // Auto-select first online camera
+    const first = channels.find(c => (c.status || 'online').toLowerCase() !== 'offline') || channels[0];
+    if (first) {
+      switchCamera(first.channel || first.id || 1, first.name || `CAM ${first.channel || 1}`);
+    }
   } catch(e) {
-    status.textContent = 'ERROR';
-    status.style.color = 'var(--red)';
-    document.getElementById('cam-load-btn').style.display = 'block';
+    listEl.innerHTML = '<div style="font-size:9px;color:var(--red);">ERROR LOADING</div>';
+    statusEl.textContent = 'ERROR';
+    statusEl.style.color = 'var(--red)';
   }
 }
 
-async function fetchCameras(){
-  try{
-    const d=await fetch('/api/cameras').then(r=>r.json());
-    const el=document.getElementById('cam-panel');
-    const cams=d.cameras||[];
-    if(cams.length===0){
-      el.innerHTML=`<div style="font-size:9px;color:var(--dim);line-height:1.6;">
-        No cameras configured.<br>
-        <span style="color:var(--c);cursor:pointer;" onclick="askJarvis('How do I add a camera to Jarvis?')">Ask Jarvis how to add one →</span>
-      </div>`;
-    } else {
-      el.innerHTML=cams.map(c=>`
-        <div class="net-row" style="cursor:pointer;" onclick="askJarvis('Analyze camera ${c.id}')">
-          <span class="net-lbl" style="max-width:90px;overflow:hidden;">${esc(c.name.toUpperCase()).substring(0,16)}</span>
-          <span style="font-size:8px;color:var(--green);">● ${esc(c.type)}</span>
-        </div>`).join('');
-    }
-    // Alerts
-    document.getElementById('b-cameras').textContent=cams.length+' CAM'+(cams.length===1?'':'S');
-    const ad=await fetch('/api/cameras/alerts').then(r=>r.json());
-    const alerts=ad.alerts||[];
-    const ael=document.getElementById('cam-alerts');
-    if(alerts.length>0){
-      ael.innerHTML=`<div style="font-size:8px;color:var(--red);letter-spacing:1px;margin-bottom:2px;">⚠ ALERTS</div>`
-        +alerts.slice(0,2).map(a=>`
-          <div style="font-size:8px;color:var(--yellow);padding:2px 0;border-bottom:1px solid rgba(255,100,0,0.15);">
-            ${esc(a.camera_name)}: ${esc(a.description).substring(0,40)}
-          </div>`).join('');
-    } else {
-      ael.innerHTML=`<div style="font-size:8px;color:var(--dim)">NO ALERTS</div>`;
-    }
-  }catch(e){}
+function analyzeCam() {
+  if (activeCamChannel) {
+    askJarvis(`Analyze camera channel ${activeCamChannel} (${activeCamName}) and describe what you see in detail`);
+  } else {
+    askJarvis('Analyze the current camera feed and tell me what you see');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -983,11 +1019,12 @@ async function fetchStudents(){
 // ═══════════════════════════════════════════════════════════
 fetchStatus(); fetchWeather(); fetchNews(); fetchTraffic(); fetchFlights(); fetchEmail();
 fetchMemory(); fetchStudents();
-loadCameras();
+loadCameraList();
 setInterval(fetchWeather,60000); setInterval(fetchTraffic,60000);
 setInterval(fetchNews,300000); setInterval(fetchFlights,90000);
 setInterval(fetchEmail,120000);
 setInterval(fetchMemory,60000); setInterval(fetchStudents,120000);
+setInterval(loadCameraList,30000);
 </script>
 </body>
 </html>

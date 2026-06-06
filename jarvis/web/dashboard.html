@@ -917,7 +917,7 @@ function switchCamera(channel, name) {
     next.src = `/api/cameras/snapshot/${channel}?t=${ts}`;
   }
   refreshSnap();
-  _camPollTimer = setInterval(refreshSnap, 2000);
+  _camPollTimer = setInterval(refreshSnap, 800);
 }
 
 async function loadCameraList() {

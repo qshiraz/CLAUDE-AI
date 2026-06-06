@@ -231,7 +231,7 @@ async def api_camera_stream(channel: int):
 
 @app.get("/api/cameras/snapshot/{channel}")
 async def api_camera_snapshot(channel: int):
-    """Proxy: fetch snapshot from DVR and return as JPEG image."""
+    """Proxy: fetch snapshot from DVR, compress, and return as JPEG."""
     cam_cfg = cfg.get("camera", {})
     ip   = cam_cfg.get("dvr_ip", "")
     user = cam_cfg.get("dvr_username", "admin")
@@ -239,22 +239,43 @@ async def api_camera_snapshot(channel: int):
     if not ip or not pwd:
         return JSONResponse({"error": "DVR not configured"}, status_code=503)
     import httpx
+    import io
     from fastapi.responses import Response
     urls = [
         f"http://{ip}/ISAPI/Streaming/channels/{channel}01/picture",
         f"http://{ip}/cgi-bin/snapshot.cgi?channel={channel}",
     ]
-    async with httpx.AsyncClient(timeout=8) as client:
+    auth_methods = [httpx.DigestAuth(user, pwd), (user, pwd)]
+    raw = None
+    async with httpx.AsyncClient(timeout=6) as client:
         for url in urls:
-            for auth in [(user, pwd)]:
+            for auth in auth_methods:
                 try:
                     r = await client.get(url, auth=auth)
                     if r.status_code == 200 and len(r.content) > 500:
-                        return Response(content=r.content, media_type="image/jpeg",
-                                        headers={"Cache-Control": "no-store"})
+                        raw = r.content
+                        break
                 except Exception:
                     continue
-    return JSONResponse({"error": "Snapshot unavailable"}, status_code=503)
+            if raw:
+                break
+    if not raw:
+        return JSONResponse({"error": "Snapshot unavailable"}, status_code=503)
+    # Compress: resize to max 800px wide, quality 60 → typically 15-40 KB
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(raw))
+        max_w = 800
+        if img.width > max_w:
+            h = int(img.height * max_w / img.width)
+            img = img.resize((max_w, h), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=60, optimize=True)
+        raw = buf.getvalue()
+    except Exception:
+        pass  # fall back to original if Pillow unavailable
+    return Response(content=raw, media_type="image/jpeg",
+                    headers={"Cache-Control": "no-store", "X-Frame-Options": "SAMEORIGIN"})
 
 
 @app.get("/api/guard-vision/cameras")

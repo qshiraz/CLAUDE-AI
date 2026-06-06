@@ -14,6 +14,7 @@ Add to config.local.yaml:
 
 import base64
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any
 
@@ -142,7 +143,7 @@ class CameraAgent(BaseAgent):
                 return ch
         return None
 
-    def _snapshot(self, channel: int) -> bytes | None:
+    def _snapshot(self, channel: int, timeout: int = 4) -> bytes | None:
         urls = [
             f"{self._base}/ISAPI/Streaming/channels/{channel}01/picture",
             f"{self._base}/cgi-bin/snapshot.cgi?channel={channel}",
@@ -151,27 +152,51 @@ class CameraAgent(BaseAgent):
             for auth in (HTTPDigestAuth(self._user, self._pwd),
                          HTTPBasicAuth(self._user, self._pwd)):
                 try:
-                    r = requests.get(url, auth=auth, timeout=8)
+                    r = requests.get(url, auth=auth, timeout=timeout)
                     if r.status_code == 200 and len(r.content) > 500:
                         return r.content
                 except Exception:
                     continue
         return None
 
+    def _ping(self, channel: int) -> bool:
+        """Quick HEAD/GET just to check if channel is online — no image data needed."""
+        url = f"{self._base}/ISAPI/Streaming/channels/{channel}01/picture"
+        for auth in (HTTPDigestAuth(self._user, self._pwd),
+                     HTTPBasicAuth(self._user, self._pwd)):
+            try:
+                r = requests.get(url, auth=auth, timeout=3, stream=True)
+                r.close()
+                if r.status_code == 200:
+                    return True
+            except Exception:
+                continue
+        return False
+
     # ── Implementations ───────────────────────────────────────────────────────
 
     def _list(self) -> str:
         if not self._ip or not self._pwd:
             return self._no_cfg()
-        cameras = []
-        for ch, name in sorted(self._named.items()):
-            img = self._snapshot(ch)
-            cameras.append({
+        channels = sorted(self._named.items())
+
+        # Check all channels in parallel
+        results: dict[int, bool] = {}
+        with ThreadPoolExecutor(max_workers=len(channels)) as pool:
+            futures = {pool.submit(self._ping, ch): ch for ch, _ in channels}
+            for fut in as_completed(futures):
+                ch = futures[fut]
+                results[ch] = fut.result()
+
+        cameras = [
+            {
                 "channel":    ch,
                 "name":       name,
-                "status":     "ONLINE" if img else "OFFLINE",
+                "status":     "ONLINE" if results.get(ch) else "OFFLINE",
                 "stream_url": f"/api/cameras/stream/{ch}",
-            })
+            }
+            for ch, name in channels
+        ]
         online = sum(1 for c in cameras if c["status"] == "ONLINE")
         return json.dumps({
             "cameras": cameras,

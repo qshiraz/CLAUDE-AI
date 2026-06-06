@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
         plugin_dir = ROOT / plugins_cfg.get("directory", "jarvis/plugins")
         registry.load_plugins(plugin_dir)
     orchestrator = JarvisOrchestrator(cfg, registry)
-    print(f"\n  Jarvis Web Dashboard → http://localhost:8080\n")
+    print(f"\n  Sahil Dashboard → http://localhost:8080\n")
     yield
 
 

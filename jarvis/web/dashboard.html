@@ -248,6 +248,9 @@ canvas.graph{width:100%;height:60px;display:block;}
   transition:color .2s;}
 #cam-float-close:hover{color:var(--red);}
 #active-cam-img{width:100%;flex:1;object-fit:cover;display:block;background:#000308;min-height:0;}
+#cam-loading{position:absolute;inset:0;top:32px;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,3,16,0.85);font-size:9px;letter-spacing:3px;color:var(--dim);pointer-events:none;}
+#cam-float{position:relative;}
 </style>
 </head>
 <body>
@@ -899,28 +902,38 @@ let activeCamName = 'NO FEED';
 let _camPollTimer = null;
 
 function switchCamera(channel, name) {
+  if (_camPollTimer) { clearInterval(_camPollTimer); _camPollTimer = null; }
   activeCamChannel = channel;
   activeCamName = name;
-  const img   = document.getElementById('active-cam-img');
-  const title = document.getElementById('cam-float-title');
-  const box   = document.getElementById('cam-float');
 
+  const img     = document.getElementById('active-cam-img');
+  const title   = document.getElementById('cam-float-title');
+  const box     = document.getElementById('cam-float');
+  const loading = document.getElementById('cam-loading');
+
+  // Show box instantly with loading state
   title.textContent = `◈ ${name.toUpperCase()} — CAM ${channel}`;
   box.classList.add('visible');
+  loading.style.display = 'flex';
+  loading.textContent = 'CONNECTING...';
 
   document.querySelectorAll('.cam-name').forEach(el => el.classList.remove('active-cam'));
   document.querySelectorAll('.cam-list-row').forEach(row => {
     if (parseInt(row.dataset.channel) === channel)
       row.querySelector('.cam-name').classList.add('active-cam');
   });
-  const liveInd = document.getElementById('cam-live-ind');
-  if (liveInd) liveInd.style.display = 'inline';
 
-  if (_camPollTimer) clearInterval(_camPollTimer);
-
+  let firstLoad = true;
   function refreshSnap() {
     const next = new Image();
-    next.onload = () => { img.src = next.src; img.style.opacity = '1'; };
+    next.onload = () => {
+      img.src = next.src;
+      img.style.opacity = '1';
+      if (firstLoad) { loading.style.display = 'none'; firstLoad = false; }
+    };
+    next.onerror = () => {
+      if (firstLoad) loading.textContent = 'NO SIGNAL';
+    };
     next.src = `/api/cameras/snapshot/${channel}?t=${Date.now()}`;
   }
   refreshSnap();
@@ -1053,6 +1066,7 @@ setInterval(loadCameraList,30000);
     </div>
   </div>
   <img id="active-cam-img" src="" alt="" onerror="this.style.opacity=0.3">
+  <div id="cam-loading">CONNECTING...</div>
 </div>
 
 <script>

@@ -229,6 +229,9 @@ async def api_camera_stream(channel: int):
     )
 
 
+# Cache: channel -> (url, auth) that worked last time
+_snap_cache: dict[int, tuple] = {}
+
 @app.get("/api/cameras/snapshot/{channel}")
 async def api_camera_snapshot(channel: int):
     """Proxy: fetch snapshot from DVR, compress, and return as JPEG."""
@@ -247,18 +250,31 @@ async def api_camera_snapshot(channel: int):
     ]
     auth_methods = [httpx.DigestAuth(user, pwd), (user, pwd)]
     raw = None
-    async with httpx.AsyncClient(timeout=6) as client:
-        for url in urls:
-            for auth in auth_methods:
-                try:
-                    r = await client.get(url, auth=auth)
-                    if r.status_code == 200 and len(r.content) > 500:
-                        raw = r.content
-                        break
-                except Exception:
-                    continue
-            if raw:
-                break
+
+    async with httpx.AsyncClient(timeout=5) as client:
+        # Try cached combo first — instant on repeat calls
+        if channel in _snap_cache:
+            cached_url, cached_auth = _snap_cache[channel]
+            try:
+                r = await client.get(cached_url, auth=cached_auth)
+                if r.status_code == 200 and len(r.content) > 500:
+                    raw = r.content
+            except Exception:
+                del _snap_cache[channel]
+
+        if not raw:
+            for url in urls:
+                for auth in auth_methods:
+                    try:
+                        r = await client.get(url, auth=auth)
+                        if r.status_code == 200 and len(r.content) > 500:
+                            raw = r.content
+                            _snap_cache[channel] = (url, auth)
+                            break
+                    except Exception:
+                        continue
+                if raw:
+                    break
     if not raw:
         return JSONResponse({"error": "Snapshot unavailable"}, status_code=503)
     # Compress: resize to max 800px wide, quality 60 → typically 15-40 KB

@@ -352,6 +352,22 @@ async def api_gv_test():
     return JSONResponse({"results": results, "recommended": working[0] if working else "none"})
 
 
+@app.get("/api/tuya")
+async def api_tuya():
+    return JSONResponse(await _dispatch("tuya_list_devices", {}))
+
+
+@app.post("/api/tuya/control")
+async def api_tuya_control(request: Request):
+    data = await request.json()
+    return JSONResponse(await _dispatch("tuya_control_device", {
+        "device_id":   data.get("device_id", ""),
+        "device_name": data.get("device_name", ""),
+        "command":     data.get("command", "toggle"),
+        "value":       data.get("value"),
+    }))
+
+
 @app.get("/api/worldcup")
 async def api_worldcup():
     return JSONResponse(await _dispatch("get_worldcup_fixtures", {"days_ahead": 14}))

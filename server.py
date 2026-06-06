@@ -190,6 +190,11 @@ async def api_cameras():
     return JSONResponse(await _dispatch("list_cameras", {}))
 
 
+@app.get("/api/guard-vision/cameras")
+async def api_gv_cameras():
+    return JSONResponse(await _dispatch("gv_list_cameras", {}))
+
+
 @app.get("/api/cameras/alerts")
 async def api_camera_alerts():
     return JSONResponse(await _dispatch("get_motion_alerts", {"limit": 20}))

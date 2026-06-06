@@ -74,11 +74,18 @@ guard_vision:
   app_secret: ""
 
 # ── Hik-Connect direct login (uses Guard Vision app credentials) ─────────────
-# Use your normal Guard Vision app username and password — no API key needed
 hik_connect:
   enabled: true
   username: "your_guardvision_email_or_phone"
   password: "YOUR_GUARDVISION_PASSWORD"
+
+# ── Guard Vision Share QR (easiest — scan your share QR code) ───────────────
+# Scan your Guard Vision share QR → text looks like:
+# HC_DEVICE_GROUP_SHARE:{"qrId":"abc123...","isEncrypt":false}
+# Copy just the qrId value below
+guard_vision_share:
+  enabled: true
+  qr_id: "YOUR_QR_ID_HERE"
 
 # ── Camera / Guard Vision ────────────────────────────────────
 # Add your Guard Vision / IP cameras here (or in config.local.yaml)

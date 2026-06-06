@@ -221,17 +221,16 @@ canvas.graph{width:100%;height:60px;display:block;}
 
 /* ═══ FLOATING CAMERA BOX ═══════════════════════════════════ */
 #cam-float{
-  position:fixed;bottom:60px;right:20px;
-  width:320px;height:320px;
+  position:fixed;top:36px;left:4px;
+  width:280px;height:280px;
   background:rgba(0,5,20,0.92);
   border:1px solid rgba(0,229,255,0.4);
   box-shadow:var(--glow2),0 8px 32px rgba(0,0,0,0.7);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  display:none;flex-direction:column;
+  display:flex;flex-direction:column;
   z-index:900;resize:both;overflow:hidden;
-  min-width:200px;min-height:200px;
+  min-width:180px;min-height:180px;
 }
-#cam-float.visible{display:flex;}
 #cam-float-bar{
   display:flex;align-items:center;justify-content:space-between;
   padding:5px 8px;background:rgba(0,229,255,0.06);
@@ -244,11 +243,12 @@ canvas.graph{width:100%;height:60px;display:block;}
   border:1px solid rgba(123,47,255,0.5);color:rgba(180,130,255,0.9);
   padding:2px 7px;cursor:pointer;transition:all .2s;font-family:monospace;}
 .cam-analyze-btn:hover{background:rgba(123,47,255,0.35);box-shadow:var(--glow-purple);}
-#cam-float-close{font-size:11px;color:var(--dim);cursor:pointer;padding:0 3px;line-height:1;
-  transition:color .2s;}
-#cam-float-close:hover{color:var(--red);}
 #active-cam-img{width:100%;flex:1;object-fit:cover;display:block;background:#000308;min-height:0;}
-#cam-loading{position:absolute;inset:0;top:32px;display:flex;align-items:center;justify-content:center;
+#cam-placeholder{position:absolute;inset:0;top:32px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;pointer-events:none;}
+#cam-placeholder svg{opacity:0.15;}
+#cam-placeholder span{font-size:8px;letter-spacing:3px;color:var(--dim);}
+#cam-loading{position:absolute;inset:0;top:32px;display:none;align-items:center;justify-content:center;
   background:rgba(0,3,16,0.85);font-size:9px;letter-spacing:3px;color:var(--dim);pointer-events:none;}
 #cam-float{position:relative;}
 </style>
@@ -903,14 +903,14 @@ function switchCamera(channel, name) {
   activeCamChannel = channel;
   activeCamName = name;
 
-  const img     = document.getElementById('active-cam-img');
-  const title   = document.getElementById('cam-float-title');
-  const box     = document.getElementById('cam-float');
-  const loading = document.getElementById('cam-loading');
+  const img         = document.getElementById('active-cam-img');
+  const title       = document.getElementById('cam-float-title');
+  const loading     = document.getElementById('cam-loading');
+  const placeholder = document.getElementById('cam-placeholder');
 
-  // Show box instantly with loading state
+  // Show loading state instantly, hide placeholder
   title.textContent = `◈ ${name.toUpperCase()} — CAM ${channel}`;
-  box.classList.add('visible');
+  placeholder.style.display = 'none';
   loading.style.display = 'flex';
   loading.textContent = 'CONNECTING...';
 
@@ -925,11 +925,12 @@ function switchCamera(channel, name) {
     const next = new Image();
     next.onload = () => {
       img.src = next.src;
+      img.style.display = 'block';
       img.style.opacity = '1';
       if (firstLoad) { loading.style.display = 'none'; firstLoad = false; }
     };
     next.onerror = () => {
-      if (firstLoad) loading.textContent = 'NO SIGNAL';
+      if (firstLoad) { loading.textContent = 'NO SIGNAL'; }
     };
     next.src = `/api/cameras/snapshot/${channel}?t=${Date.now()}`;
   }
@@ -1055,14 +1056,20 @@ setInterval(loadCameraList,30000);
 <!-- ═══ FLOATING CAMERA BOX ═══════════════════════════════════ -->
 <div id="cam-float">
   <div id="cam-float-bar">
-    <span id="cam-float-title">◈ CAMERA — NO FEED</span>
+    <span id="cam-float-title">◈ NO FEED</span>
     <div class="cam-float-btns">
-      <span style="font-size:7px;letter-spacing:1px;color:var(--green);animation:pdot 1.6s ease-in-out infinite;" id="cam-live-ind" style="display:none">● LIVE</span>
+      <span style="font-size:7px;letter-spacing:1px;color:var(--green);animation:pdot 1.6s ease-in-out infinite;display:none;" id="cam-live-ind">● LIVE</span>
       <button class="cam-analyze-btn" onclick="analyzeCam()">◈ ANALYZE</button>
-      <span id="cam-float-close" onclick="closeCamFloat()" title="Close">✕</span>
     </div>
   </div>
-  <img id="active-cam-img" src="" alt="" onerror="this.style.opacity=0.3">
+  <img id="active-cam-img" src="" alt="" style="display:none;" onerror="this.style.opacity=0.3">
+  <div id="cam-placeholder">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="1">
+      <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+    </svg>
+    <span>SELECT A CAMERA</span>
+    <span style="font-size:7px;letter-spacing:1px;color:rgba(0,180,255,0.25);">CLICK LIST OR ASK SAHIL</span>
+  </div>
   <div id="cam-loading">CONNECTING...</div>
 </div>
 
@@ -1089,10 +1096,6 @@ setInterval(loadCameraList,30000);
   }
 })();
 
-function closeCamFloat() {
-  document.getElementById('cam-float').classList.remove('visible');
-  if (_camPollTimer) { clearInterval(_camPollTimer); _camPollTimer = null; }
-}
 </script>
 </body>
 </html>

@@ -375,6 +375,27 @@ async def api_camera_alert(request: Request):
     return JSONResponse({"received": True})
 
 
+@app.get("/api/radio/stream")
+async def api_radio_stream(url: str):
+    """Proxy radio stream to avoid CORS issues."""
+    import httpx
+    from fastapi.responses import StreamingResponse
+    async def generate():
+        async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
+            try:
+                async with client.stream("GET", url, headers={"User-Agent": "SahilAI/1.0"}) as resp:
+                    content_type = resp.headers.get("content-type", "audio/mpeg")
+                    async for chunk in resp.aiter_bytes(8192):
+                        yield chunk
+            except Exception:
+                return
+    # Determine media type
+    mt = "audio/mpeg"
+    if url.endswith(".aac"): mt = "audio/aac"
+    if url.endswith(".ogg"): mt = "audio/ogg"
+    return StreamingResponse(generate(), media_type=mt, headers={"Cache-Control": "no-cache"})
+
+
 # ── Chat endpoints ────────────────────────────────────────────────────────────
 
 @app.websocket("/ws/chat")

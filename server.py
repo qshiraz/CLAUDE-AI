@@ -377,23 +377,45 @@ async def api_camera_alert(request: Request):
 
 @app.get("/api/radio/stream")
 async def api_radio_stream(url: str):
-    """Proxy radio stream to avoid CORS issues."""
+    """Proxy radio stream to avoid CORS issues. Detects actual content-type."""
     import httpx
     from fastapi.responses import StreamingResponse
+
+    # Quick HEAD-like request to detect content-type before streaming
+    detected_mt = ["audio/mpeg"]
+    u_lower = url.lower()
+    if ".aac" in u_lower: detected_mt[0] = "audio/aac"
+    elif ".ogg" in u_lower: detected_mt[0] = "audio/ogg"
+    elif ".m3u8" in u_lower: detected_mt[0] = "application/vnd.apple.mpegurl"
+    elif ".opus" in u_lower: detected_mt[0] = "audio/opus"
+    elif ".flac" in u_lower: detected_mt[0] = "audio/flac"
+
     async def generate():
         async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
             try:
-                async with client.stream("GET", url, headers={"User-Agent": "SahilAI/1.0"}) as resp:
-                    content_type = resp.headers.get("content-type", "audio/mpeg")
+                async with client.stream(
+                    "GET", url,
+                    headers={"User-Agent": "Mozilla/5.0 SahilAI/1.0", "Icy-MetaData": "1"}
+                ) as resp:
+                    ct = resp.headers.get("content-type", "")
+                    if ct:
+                        base = ct.split(";")[0].strip()
+                        if base and ("audio" in base or "mpegurl" in base or "octet" in base):
+                            detected_mt[0] = base
                     async for chunk in resp.aiter_bytes(8192):
                         yield chunk
             except Exception:
                 return
-    # Determine media type
-    mt = "audio/mpeg"
-    if url.endswith(".aac"): mt = "audio/aac"
-    if url.endswith(".ogg"): mt = "audio/ogg"
-    return StreamingResponse(generate(), media_type=mt, headers={"Cache-Control": "no-cache"})
+
+    return StreamingResponse(
+        generate(),
+        media_type=detected_mt[0],
+        headers={
+            "Cache-Control": "no-cache",
+            "Access-Control-Allow-Origin": "*",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 # ── Chat endpoints ────────────────────────────────────────────────────────────

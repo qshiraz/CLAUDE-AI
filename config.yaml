@@ -121,6 +121,21 @@ radio:
 sports:
   enabled: true
 
+# ── Tuya Smart Home ─────────────────────────────────────────
+# Get credentials: https://platform.tuya.com → Cloud → Create project
+# Then link your Tuya Smart / Smart Life app account under "Linked Devices"
+tuya:
+  enabled: true
+  access_id: "YOUR_TUYA_ACCESS_ID"
+  access_secret: "YOUR_TUYA_ACCESS_SECRET"
+  # Pick the data-center closest to you:
+  #   openapi.tuyaeu.com  — Europe & Africa  (recommended for Kenya)
+  #   openapi.tuyaus.com  — Americas
+  #   openapi.tuyacn.com  — China
+  #   openapi.tuyain.com  — India
+  base_url: "https://openapi.tuyaeu.com"
+  home_id: ""   # optional — leave blank to list all homes' devices
+
 # ── Plugin directory ────────────────────────────────────────
 plugins:
   enabled: true

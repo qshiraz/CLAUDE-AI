@@ -45,6 +45,7 @@ class AgentRegistry:
         from jarvis.agents.camera_agent import CameraAgent
         from jarvis.agents.radio_agent import RadioAgent
         from jarvis.agents.sports_agent import SportsAgent
+        from jarvis.agents.tuya_agent import TuyaAgent
 
         builtin_map = {
             "weather": WeatherAgent,
@@ -57,6 +58,7 @@ class AgentRegistry:
             "camera": CameraAgent,
             "radio": RadioAgent,
             "sports": SportsAgent,
+            "tuya": TuyaAgent,
         }
 
         for key, cls in builtin_map.items():

@@ -5,13 +5,14 @@
 <title>SAHIL OS</title>
 <style>
 :root{
-  --bg:#020408; --panel:rgba(0,4,15,0.88); --b:#0a2a5a;
-  --c:#00ffff; --bright:#80ffff; --dim:rgba(0,255,255,0.35);
-  --c2:#bf00ff; --c2dim:rgba(191,0,255,0.35);
-  --white:#e0f8ff; --red:#ff2244; --green:#00ff88; --yellow:#ffaa00;
-  --glow:0 0 20px rgba(0,255,255,0.9); --glow2:0 0 40px rgba(0,255,255,0.6);
-  --glow-purple:0 0 20px rgba(191,0,255,0.8);
-  --glass:rgba(0,4,15,0.88);
+  --bg:#00010a; --panel:rgba(0,2,12,0.95); --b:#001830;
+  --c:#00fff7; --bright:#affffc; --dim:rgba(0,255,247,0.3);
+  --c2:#cc00ff; --c2dim:rgba(204,0,255,0.3);
+  --white:#cff8ff; --red:#ff1744; --green:#00e676; --yellow:#ffea00;
+  --glow:0 0 8px #00fff7,0 0 24px rgba(0,255,247,0.7),0 0 48px rgba(0,255,247,0.3);
+  --glow2:0 0 16px #00fff7,0 0 60px rgba(0,255,247,0.5);
+  --glow-purple:0 0 8px #cc00ff,0 0 24px rgba(204,0,255,0.7);
+  --glass:rgba(0,3,18,0.92);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;background:var(--bg);color:var(--c);font-family:'Courier New',monospace;font-size:11px;overflow:hidden;}
@@ -19,12 +20,15 @@ html,body{height:100%;background:var(--bg);color:var(--c);font-family:'Courier N
 /* Circuit board / hex grid bg */
 body::before{content:'';position:fixed;inset:0;z-index:0;
   background-image:
-    linear-gradient(rgba(0,255,255,0.06) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(0,255,255,0.06) 1px,transparent 1px),
-    radial-gradient(circle at 20% 35%, rgba(191,0,255,0.1) 0%, transparent 55%),
-    radial-gradient(circle at 80% 65%, rgba(0,255,255,0.08) 0%, transparent 55%),
-    radial-gradient(ellipse at 50% 50%, rgba(0,10,30,0.95) 0%, #020408 100%);
-  background-size:20px 20px,20px 20px,100% 100%,100% 100%,100% 100%;}
+    linear-gradient(rgba(0,255,247,0.08) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,255,247,0.08) 1px,transparent 1px),
+    linear-gradient(rgba(0,255,247,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,255,247,0.03) 1px,transparent 1px),
+    radial-gradient(ellipse at 10% 50%, rgba(204,0,255,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 20%, rgba(0,255,247,0.12) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 100%, rgba(0,80,255,0.1) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 50%, rgba(0,5,20,0.97) 0%, #00010a 100%);
+  background-size:80px 80px,80px 80px,20px 20px,20px 20px,100% 100%,100% 100%,100% 100%,100% 100%;}
 
 /* Scanline */
 .scan{position:fixed;left:0;right:0;height:4px;z-index:1;pointer-events:none;
@@ -42,11 +46,11 @@ body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
 
 /* ═══ TOP BAR ══════════════════════════════════════════ */
 .topbar{display:flex;align-items:center;justify-content:space-between;
-  padding:4px 14px;border:1px solid rgba(0,255,255,0.35);
-  background:linear-gradient(90deg,rgba(0,2,10,0.98) 0%,rgba(0,8,25,0.95) 50%,rgba(0,2,10,0.98) 100%);
-  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  box-shadow:var(--glow),inset 0 -1px 0 rgba(0,255,255,0.25),0 4px 20px rgba(0,255,255,0.05);flex-shrink:0;}
-.logo-text{font-size:15px;font-weight:bold;letter-spacing:8px;text-shadow:var(--glow);}
+  padding:5px 14px;border-bottom:1px solid rgba(0,255,247,0.3);border-top:none;border-left:none;border-right:none;
+  background:linear-gradient(90deg,rgba(0,1,8,0.99) 0%,rgba(0,5,18,0.97) 40%,rgba(0,1,8,0.99) 100%);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:0 0 30px rgba(0,255,247,0.15),0 1px 0 rgba(0,255,247,0.3),0 8px 30px rgba(0,0,0,0.9);flex-shrink:0;}
+.logo-text{font-size:16px;font-weight:bold;letter-spacing:10px;text-shadow:0 0 10px #00fff7,0 0 30px rgba(0,255,247,0.6);}
 .logo-sub{font-size:8px;letter-spacing:4px;color:var(--dim);margin-top:1px;}
 .top-stats{display:flex;gap:20px;align-items:center;}
 .stat-chip{display:flex;flex-direction:column;align-items:center;gap:1px;}
@@ -64,20 +68,19 @@ body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
 .main{flex:1;display:grid;grid-template-columns:200px 1fr 220px;gap:4px;min-height:0;}
 
 /* ── Panel base ── */
-.pn{border:1px solid rgba(0,255,255,0.25);background:var(--glass);
-  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+.pn{border:1px solid rgba(0,255,247,0.18);background:var(--glass);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   position:relative;overflow:hidden;display:flex;flex-direction:column;padding:7px 8px;
-  box-shadow:0 0 15px rgba(0,255,255,0.1),inset 0 0 30px rgba(0,255,255,0.03),0 2px 12px rgba(0,0,0,0.7);}
-/* Double-line corner accents */
-.pn::before,.pn::after{content:'';position:absolute;border-color:var(--c);border-style:solid;}
-.pn::before{top:3px;left:3px;width:16px;height:16px;border-width:3px 0 0 3px;box-shadow:-2px -2px 0 rgba(0,255,255,0.4);}
-.pn::after{bottom:3px;right:3px;width:16px;height:16px;border-width:0 3px 3px 0;box-shadow:2px 2px 0 rgba(0,255,255,0.4);}
-/* Inner corner marks */
-.pn .pn-inner-tl,.pn .pn-inner-br{content:'';position:absolute;width:7px;height:7px;border-color:var(--c2);border-style:solid;opacity:0.5;}
-.pn-title{font-size:8px;letter-spacing:4px;color:var(--c);text-shadow:var(--glow);
-  margin-bottom:5px;padding-bottom:4px;padding-left:7px;
-  border-bottom:1px solid rgba(0,255,255,0.2);
-  border-left:3px solid var(--c);flex-shrink:0;}
+  box-shadow:0 0 20px rgba(0,255,247,0.08),0 0 1px rgba(0,255,247,0.4),inset 0 0 40px rgba(0,255,247,0.02),0 4px 20px rgba(0,0,0,0.8);}
+/* Corner accents */
+.pn::before,.pn::after{content:'';position:absolute;border-color:#00fff7;border-style:solid;filter:drop-shadow(0 0 4px #00fff7);}
+.pn::before{top:2px;left:2px;width:18px;height:18px;border-width:2px 0 0 2px;}
+.pn::after{bottom:2px;right:2px;width:18px;height:18px;border-width:0 2px 2px 0;}
+.pn-title{font-size:8px;letter-spacing:5px;color:#00fff7;
+  text-shadow:0 0 8px #00fff7,0 0 20px rgba(0,255,247,0.5);
+  margin-bottom:5px;padding-bottom:4px;padding-left:8px;
+  border-bottom:1px solid rgba(0,255,247,0.15);
+  border-left:2px solid #00fff7;flex-shrink:0;}
 
 /* ═══ LEFT COLUMN ════════════════════════════════════════ */
 .left-col{display:flex;flex-direction:column;gap:4px;}
@@ -138,8 +141,8 @@ canvas.graph{width:100%;height:60px;display:block;}
 .msgs::-webkit-scrollbar-thumb{background:var(--b);}
 .msg{margin-bottom:3px;font-size:10px;line-height:1.5;}
 .msg .who{font-weight:bold;}
-.msg.user .who{color:#4488bb;} .msg.user .txt{color:#88bbdd;}
-.msg.bot .who{color:#00ffff;}  .msg.bot .txt{color:#c8f0ff;}
+.msg.user .who{color:rgba(0,180,255,0.7);} .msg.user .txt{color:rgba(180,230,255,0.8);}
+.msg.bot .who{color:#00fff7;text-shadow:0 0 8px #00fff7;} .msg.bot .txt{color:#ddfaff;}
 .wave{height:3px;background:rgba(0,100,200,0.2);border-radius:2px;margin:3px 0;}
 .wave-fill{height:100%;background:var(--green);border-radius:2px;width:0%;transition:width .1s;}
 .chat-row{display:flex;gap:4px;}
@@ -487,14 +490,7 @@ canvas.graph{width:100%;height:60px;display:block;}
 
     <div class="pn" style="flex:1">
       <div class="pn-title">◈ AGENT STATUS</div>
-      <div class="agent-list" id="agent-list">
-        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">WEATHER</span><span class="ag-status">ONLINE</span></div>
-        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">NEWS</span><span class="ag-status">ONLINE</span></div>
-        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">FLIGHTS</span><span class="ag-status">ONLINE</span></div>
-        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">TRAFFIC</span><span class="ag-status">ONLINE</span></div>
-        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">SMART HOME</span><span class="ag-status">ONLINE</span></div>
-        <div class="ag-row"><div class="ag-dot ok"></div><span class="ag-name">EMAIL</span><span class="ag-status">ONLINE</span></div>
-      </div>
+      <div class="agent-list" id="agent-list"><div class="loading">LOADING...</div></div>
     </div>
 
     <div class="pn" style="flex:1.2">
@@ -995,11 +991,7 @@ async function loadCameraList() {
       </div>`;
     }).join('');
 
-    // Auto-select first online camera
-    const first = online[0];
-    if (first) {
-      switchCamera(first.channel || first.id || 1, first.name || `CAM ${first.channel || 1}`);
-    }
+    // Do NOT auto-select — keep placeholder visible until user picks
   } catch(e) {
     listEl.innerHTML = '<div style="font-size:9px;color:var(--red);">ERROR LOADING</div>';
     statusEl.textContent = 'ERROR';
@@ -1069,13 +1061,24 @@ let radioPlaying = false;
 const radioAudio = document.getElementById('radio-audio');
 
 function playRadioStation(url, name, favicon) {
+  radioAudio.pause();
   radioAudio.src = '/api/radio/stream?url=' + encodeURIComponent(url);
-  radioAudio.play().catch(()=>{});
-  radioPlaying = true;
+  radioAudio.load();
+  radioPlaying = false;
   document.getElementById('radio-station-name').textContent = name;
-  document.getElementById('radio-play-btn').textContent = '⏸ PAUSE';
-  document.getElementById('radio-status').textContent = '● ON AIR';
-  document.getElementById('radio-status').style.color = '#00ff88';
+  document.getElementById('radio-play-btn').textContent = '▶ PLAY';
+  document.getElementById('radio-status').textContent = '◉ READY';
+  document.getElementById('radio-status').style.color = 'var(--c)';
+  // Auto-play — browsers allow this if triggered by user message click
+  radioAudio.play().then(() => {
+    radioPlaying = true;
+    document.getElementById('radio-play-btn').textContent = '⏸ PAUSE';
+    document.getElementById('radio-status').textContent = '● ON AIR';
+    document.getElementById('radio-status').style.color = '#00ff88';
+  }).catch(() => {
+    // Autoplay blocked — user must click PLAY button
+    document.getElementById('radio-status').textContent = '▶ CLICK PLAY';
+  });
 }
 
 function toggleRadio() {

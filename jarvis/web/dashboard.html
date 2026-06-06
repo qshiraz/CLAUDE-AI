@@ -429,6 +429,56 @@ body::after {
 .thinking #jarvis-orb { animation-duration:.6s !important; }
 .thinking-ind { font-size:8px; letter-spacing:2px; color:var(--dim); }
 .thinking .thinking-ind { color:var(--c); animation:blink .5s step-end infinite; }
+
+/* ── Listening (voice input) state ───────────────── */
+.listening #jarvis-orb {
+  animation-duration: .4s !important;
+  box-shadow: 0 0 55px rgba(0,255,136,.8), 0 0 110px rgba(0,255,136,.4), inset 0 0 40px rgba(0,255,136,.2) !important;
+}
+.mbtn {
+  background: none;
+  border: 1px solid rgba(0,229,255,.25);
+  color: var(--dim);
+  padding: 5px 9px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all .2s;
+  position: relative;
+}
+.mbtn.on {
+  color: var(--green);
+  border-color: var(--green);
+  box-shadow: 0 0 10px rgba(0,255,136,.5);
+  animation: mic-pulse .8s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%,100% { box-shadow:0 0 10px rgba(0,255,136,.5); }
+  50%      { box-shadow:0 0 20px rgba(0,255,136,.9); }
+}
+.clap-ind {
+  font-size: 8px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all .2s;
+}
+.clap-ind.on  { color: var(--green); }
+.clap-ind.off { color: var(--dim); }
+
+/* Voice waveform bar */
+.wave-bar {
+  height: 3px;
+  background: rgba(0,255,136,.2);
+  border-radius: 2px;
+  margin-top: 3px;
+  overflow: hidden;
+}
+.wave-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 2px;
+  width: 0%;
+  transition: width .1s;
+}
 </style>
 </head>
 <body>
@@ -506,14 +556,19 @@ body::after {
       <div class="panel chat-panel">
         <div class="ph">
           <span class="ptitle">◉ COMMAND INPUT</span>
-          <button class="vbtn on" id="vbtn" onclick="toggleVoice()" title="Voice">🔊</button>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="clap-ind off" id="clap-ind" onclick="toggleClap()" title="Double-clap to activate mic">👏 CLAP</span>
+            <button class="vbtn on" id="vbtn" onclick="toggleVoice()" title="Toggle speaker">🔊</button>
+          </div>
         </div>
+        <div class="wave-bar"><div class="wave-fill" id="wave-fill"></div></div>
         <div class="msgs" id="msgs">
-          <div class="msg bot"><span class="who">JARVIS »</span> <span class="txt">Good day. All agents are online and ready. How can I assist you?</span></div>
+          <div class="msg bot"><span class="who">JARVIS »</span> <span class="txt">Good day. All agents online. Click 🎤 or double-clap to speak.</span></div>
         </div>
         <div class="chat-row">
-          <input class="cinput" id="cinput" type="text" placeholder="Speak your command..." autocomplete="off"
+          <input class="cinput" id="cinput" type="text" placeholder="Type or click 🎤 to speak..." autocomplete="off"
                  onkeydown="if(event.key==='Enter')sendMsg()">
+          <button class="mbtn" id="mbtn" onclick="toggleMic()" title="Voice input">🎤</button>
           <button class="sbtn" onclick="sendMsg()">SEND</button>
         </div>
       </div>
@@ -590,16 +645,16 @@ function tick() {
 setInterval(tick, 1000); tick();
 
 // ═══════════════════════════════════════════════════════════
-//  VOICE (Web Speech API — built into Chrome/Edge, no install)
+//  SPEAKER OUTPUT (Text-to-Speech)
 // ═══════════════════════════════════════════════════════════
 let voiceOn = true;
 const synth = window.speechSynthesis;
-let voice = null;
+let ttsVoice = null;
 
 function loadVoice() {
   const vs = synth.getVoices();
-  voice = vs.find(v=>v.lang.startsWith('en-')&&v.name.includes('Google')) ||
-          vs.find(v=>v.lang.startsWith('en-')) || vs[0];
+  ttsVoice = vs.find(v=>v.lang.startsWith('en-')&&v.name.toLowerCase().includes('google')) ||
+             vs.find(v=>v.lang.startsWith('en-')) || vs[0];
 }
 if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = loadVoice;
 setTimeout(loadVoice, 500);
@@ -610,7 +665,7 @@ function speak(text) {
   const clean = text.replace(/[*_`#\-=>|]+/g,' ').replace(/\s+/g,' ').trim();
   if (!clean) return;
   const u = new SpeechSynthesisUtterance(clean);
-  if (voice) u.voice = voice;
+  if (ttsVoice) u.voice = ttsVoice;
   u.rate = 0.92; u.pitch = 0.85; u.volume = 1;
   synth.speak(u);
 }
@@ -621,6 +676,155 @@ function toggleVoice() {
   b.textContent = voiceOn ? '🔊' : '🔇';
   b.classList.toggle('on', voiceOn);
   if (!voiceOn) synth.cancel();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  VOICE INPUT (Speech Recognition — Chrome/Edge built-in)
+// ═══════════════════════════════════════════════════════════
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let micActive = false;
+
+if (SR) {
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    micActive = true;
+    document.getElementById('mbtn').classList.add('on');
+    document.getElementById('core-wrap').classList.add('listening');
+    document.getElementById('thinking-ind').textContent = 'LISTENING...';
+    document.getElementById('cinput').placeholder = '🎤 Listening...';
+  };
+
+  recognition.onend = () => {
+    micActive = false;
+    document.getElementById('mbtn').classList.remove('on');
+    document.getElementById('core-wrap').classList.remove('listening');
+    document.getElementById('thinking-ind').textContent = 'STANDBY';
+    document.getElementById('cinput').placeholder = 'Type or click 🎤 to speak...';
+  };
+
+  recognition.onresult = (e) => {
+    const transcript = Array.from(e.results).map(r=>r[0].transcript).join('');
+    document.getElementById('cinput').value = transcript;
+    if (e.results[e.results.length-1].isFinal) {
+      setTimeout(sendMsg, 150);
+    }
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error !== 'no-speech') addMsg('bot', `[MIC] ${e.error}`);
+    micActive = false;
+    document.getElementById('mbtn').classList.remove('on');
+    document.getElementById('core-wrap').classList.remove('listening');
+    document.getElementById('thinking-ind').textContent = 'STANDBY';
+  };
+}
+
+function toggleMic() {
+  if (!recognition) { addMsg('bot','Voice input requires Chrome or Edge browser.'); return; }
+  if (micActive) { recognition.stop(); }
+  else { try { recognition.start(); } catch(e) {} }
+}
+
+function activateMic() {
+  if (!recognition || micActive) return;
+  try { recognition.start(); } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CLAP DETECTION (Web Audio API — double-clap activates mic)
+// ═══════════════════════════════════════════════════════════
+let clapEnabled = false;
+let audioCtx = null;
+let analyser = null;
+let clapAnimId = null;
+let lastClapTime = 0;
+let clapCount = 0;
+const CLAP_THRESHOLD = 55;    // amplitude 0-128 — raise if too sensitive
+const CLAP_WINDOW_MS = 700;   // max ms between two claps for a double-clap
+
+function toggleClap() {
+  if (clapEnabled) {
+    stopClapDetection();
+  } else {
+    startClapDetection();
+  }
+}
+
+async function startClapDetection() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true, video: false});
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.3;
+    src.connect(analyser);
+    clapEnabled = true;
+    updateClapIndicator(true);
+    detectClap();
+    addMsg('bot', 'Clap detection active. Double-clap to activate microphone.');
+  } catch(e) {
+    addMsg('bot', 'Microphone access denied. Allow mic permission and try again.');
+  }
+}
+
+function stopClapDetection() {
+  clapEnabled = false;
+  if (clapAnimId) cancelAnimationFrame(clapAnimId);
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  updateClapIndicator(false);
+  document.getElementById('wave-fill').style.width = '0%';
+}
+
+function updateClapIndicator(on) {
+  const el = document.getElementById('clap-ind');
+  el.className = 'clap-ind ' + (on ? 'on' : 'off');
+  el.title = on ? 'Clap detection ON — click to disable' : 'Click to enable double-clap activation';
+}
+
+let clapCooldown = false;
+
+function detectClap() {
+  if (!clapEnabled) return;
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteTimeDomainData(data);
+
+  // Compute peak amplitude deviation from 128 (silence)
+  let peak = 0;
+  for (let i = 0; i < data.length; i++) {
+    const v = Math.abs(data[i] - 128);
+    if (v > peak) peak = v;
+  }
+
+  // Drive the wave bar (normalise 0-128 → 0-100%)
+  document.getElementById('wave-fill').style.width = Math.min(peak / 128 * 100 * 2, 100) + '%';
+
+  if (peak > CLAP_THRESHOLD && !clapCooldown) {
+    clapCooldown = true;
+    setTimeout(() => { clapCooldown = false; }, 120); // debounce
+
+    const now = Date.now();
+    if (now - lastClapTime < CLAP_WINDOW_MS) {
+      // ── DOUBLE CLAP DETECTED ──
+      clapCount = 0;
+      lastClapTime = 0;
+      activateMic();
+      // Flash the orb green briefly
+      const orb = document.getElementById('jarvis-orb');
+      orb.style.boxShadow = '0 0 60px rgba(0,255,136,1), 0 0 120px rgba(0,255,136,.6)';
+      setTimeout(() => { orb.style.boxShadow = ''; }, 600);
+    } else {
+      lastClapTime = now;
+    }
+  }
+
+  clapAnimId = requestAnimationFrame(detectClap);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -656,7 +860,7 @@ function addMsg(role, text) {
 
 function setThinking(on) {
   document.getElementById('core-wrap').classList.toggle('thinking', on);
-  document.getElementById('thinking-ind').textContent = on ? 'PROCESSING...' : 'STANDBY';
+  if (!micActive) document.getElementById('thinking-ind').textContent = on ? 'PROCESSING...' : 'STANDBY';
 }
 
 function focusChat() { document.getElementById('cinput').focus(); }

@@ -87,6 +87,14 @@ guard_vision_share:
   enabled: true
   qr_id: "YOUR_QR_ID_HERE"
 
+# ── Guard Vision browser automation (no API key needed) ──────────────────────
+# Uses Playwright to log into web.hik-connect.com and capture screenshots
+# Install once: pip install playwright && playwright install chromium
+guard_vision_browser:
+  enabled: true
+  username: "your_guardvision_email"
+  password: "YOUR_GUARDVISION_PASSWORD"
+
 # ── Camera / Guard Vision ────────────────────────────────────
 # Add your Guard Vision / IP cameras here (or in config.local.yaml)
 camera:

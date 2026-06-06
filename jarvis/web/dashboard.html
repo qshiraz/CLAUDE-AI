@@ -221,8 +221,8 @@ canvas.graph{width:100%;height:60px;display:block;}
 
 /* ═══ FLOATING CAMERA BOX ═══════════════════════════════════ */
 #cam-float{
-  position:fixed;top:36px;left:4px;
-  width:280px;height:280px;
+  position:fixed;top:36px;right:228px;
+  width:300px;height:370px;
   background:rgba(0,5,20,0.92);
   border:1px solid rgba(0,229,255,0.4);
   box-shadow:var(--glow2),0 8px 32px rgba(0,0,0,0.7);
@@ -1081,8 +1081,14 @@ setInterval(loadCameraList,30000);
   let dx=0,dy=0,sx=0,sy=0;
   bar.addEventListener('mousedown', e => {
     e.preventDefault();
-    sx = e.clientX - box.offsetLeft;
-    sy = e.clientY - box.offsetTop;
+    // Convert right-anchored position to left for dragging
+    const rect = box.getBoundingClientRect();
+    box.style.left   = rect.left + 'px';
+    box.style.top    = rect.top  + 'px';
+    box.style.right  = 'auto';
+    box.style.bottom = 'auto';
+    sx = e.clientX - rect.left;
+    sy = e.clientY - rect.top;
     document.addEventListener('mousemove', drag);
     document.addEventListener('mouseup', () => document.removeEventListener('mousemove', drag), {once:true});
   });
@@ -1091,8 +1097,6 @@ setInterval(loadCameraList,30000);
     const ny = Math.max(0, Math.min(e.clientY - sy, window.innerHeight - box.offsetHeight));
     box.style.left = nx + 'px';
     box.style.top  = ny + 'px';
-    box.style.right  = 'auto';
-    box.style.bottom = 'auto';
   }
 })();
 

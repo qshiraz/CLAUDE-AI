@@ -892,24 +892,32 @@ function askJarvis(q){document.getElementById('cinput').value=q;sendMsg();}
 // ═══════════════════════════════════════════════════════════
 let activeCamChannel = null;
 let activeCamName = 'NO FEED';
+let _camPollTimer = null;
 
 function switchCamera(channel, name) {
   activeCamChannel = channel;
   activeCamName = name;
   const img = document.getElementById('active-cam-img');
   const title = document.getElementById('active-cam-title');
-  img.src = `/api/cameras/stream/${channel}`;
-  img.style.opacity = '1';
   title.textContent = `◈ CAM ${channel} — ${name.toUpperCase()}`;
-  // Update active highlight in list
   document.querySelectorAll('.cam-name').forEach(el => el.classList.remove('active-cam'));
-  const rows = document.querySelectorAll('.cam-list-row');
-  rows.forEach(row => {
-    if (parseInt(row.dataset.channel) === channel) {
+  document.querySelectorAll('.cam-list-row').forEach(row => {
+    if (parseInt(row.dataset.channel) === channel)
       row.querySelector('.cam-name').classList.add('active-cam');
-    }
   });
   document.getElementById('cam-live-ind').style.display = 'inline';
+
+  // Stop any previous poll
+  if (_camPollTimer) clearInterval(_camPollTimer);
+
+  function refreshSnap() {
+    const ts = Date.now();
+    const next = new Image();
+    next.onload = () => { img.src = next.src; img.style.opacity = '1'; };
+    next.src = `/api/cameras/snapshot/${channel}?t=${ts}`;
+  }
+  refreshSnap();
+  _camPollTimer = setInterval(refreshSnap, 2000);
 }
 
 async function loadCameraList() {

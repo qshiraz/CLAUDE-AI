@@ -1240,26 +1240,7 @@ function setRadioVol(v) {
   if(a) a.volume = parseFloat(v);
 }
 
-// Radio drag
-(function(){
-  const box = document.getElementById('radio-float');
-  const bar = document.getElementById('radio-bar');
-  if (!box || !bar) return;
-  let sx=0, sy=0;
-  bar.addEventListener('mousedown', e => {
-    e.preventDefault();
-    const r = box.getBoundingClientRect();
-    box.style.left = r.left + 'px'; box.style.top = r.top + 'px';
-    box.style.right = 'auto'; box.style.bottom = 'auto';
-    sx = e.clientX - r.left; sy = e.clientY - r.top;
-    const mv = ev => {
-      box.style.left = Math.max(0,ev.clientX-sx)+'px';
-      box.style.top  = Math.max(0,ev.clientY-sy)+'px';
-    };
-    document.addEventListener('mousemove', mv);
-    document.addEventListener('mouseup', ()=>document.removeEventListener('mousemove',mv),{once:true});
-  });
-})();
+// Radio drag — initialized after DOM is ready (see second script block below)
 
 // ── World Cup Fixtures ────────────────────────────────────────
 async function loadWorldCup() {
@@ -1389,6 +1370,30 @@ setInterval(fetchStatus, 30000);
 </div>
 
 <script>
+// ── Floating drag helper ──────────────────────────────────────
+function makeDraggable(boxId, barId) {
+  const box = document.getElementById(boxId);
+  const bar = document.getElementById(barId);
+  if (!box || !bar) return;
+  let sx=0, sy=0;
+  bar.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const r = box.getBoundingClientRect();
+    box.style.left   = r.left + 'px';
+    box.style.top    = r.top  + 'px';
+    box.style.right  = 'auto';
+    box.style.bottom = 'auto';
+    sx = e.clientX - r.left;
+    sy = e.clientY - r.top;
+    const mv = ev => {
+      box.style.left = Math.max(0, Math.min(ev.clientX - sx, window.innerWidth  - box.offsetWidth))  + 'px';
+      box.style.top  = Math.max(0, Math.min(ev.clientY - sy, window.innerHeight - box.offsetHeight)) + 'px';
+    };
+    document.addEventListener('mousemove', mv);
+    document.addEventListener('mouseup', () => document.removeEventListener('mousemove', mv), {once:true});
+  });
+}
+
 // ── Floating camera drag ──────────────────────────────────────
 (function(){
   const box = document.getElementById('cam-float');
@@ -1414,6 +1419,9 @@ setInterval(fetchStatus, 30000);
     box.style.top  = ny + 'px';
   }
 })();
+
+// ── Radio drag (must run after radio-float exists in DOM) ─────
+makeDraggable('radio-float', 'radio-bar');
 
 </script>
 </body>

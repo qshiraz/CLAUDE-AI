@@ -23,13 +23,19 @@ class GuardVisionShareAgent(BaseAgent):
         "and analyses scenes with AI vision."
     )
 
-    # Hikvision regional API endpoints — all tried in order
+    # Only reachable Hikvision endpoints (confirmed by connectivity test)
     _BASES = [
         "https://api.hik-connect.com",
-        "https://apiisa.hik-connect.com",   # international south/africa
-        "https://apieur.hik-connect.com",   # europe
-        "https://apiusa.hik-connect.com",   # americas
-        "https://apicn.hik-connect.com",    # china/asia
+        "https://apiisa.hik-connect.com",   # Africa/International South
+    ]
+
+    # All known API paths for share QR resolution — tried in order
+    _SHARE_PATHS = [
+        "/v3/share/device/group/cameras",
+        "/v3/share/devicegroup/cameras",
+        "/v3/share/cameras",
+        "/v3/userdevices/v1/share/cameras",
+        "/v3/share/device/group/qrcode/cameras",
     ]
 
     def __init__(self, cfg: dict, global_cfg: dict) -> None:
@@ -110,68 +116,70 @@ class GuardVisionShareAgent(BaseAgent):
         if self._cam_cache and time.time() - self._cache_ts < 300:
             return self._cam_cache
 
-        last_err = "No response"
+        headers = {
+            "clientType":   "55",
+            "lang":         "en-US",
+            "Content-Type": "application/json",
+        }
+        attempts: list[str] = []
+
         for base in self._BASES:
-            try:
-                # Try resolving the share group
-                resp = requests.get(
-                    f"{base}/v3/share/device/group/cameras",
-                    params={"qrId": self._qr_id},
-                    headers={
-                        "clientType": "55",
-                        "lang": "en-US",
-                    },
-                    timeout=12,
-                )
-                data = resp.json()
-                code = str(data.get("code", ""))
+            for path in self._SHARE_PATHS:
+                url = f"{base}{path}"
+                # Try GET
+                for method in ("GET", "POST"):
+                    try:
+                        if method == "GET":
+                            resp = requests.get(
+                                url,
+                                params={"qrId": self._qr_id, "pageStart": 0, "pageSize": 100},
+                                headers=headers,
+                                timeout=10,
+                                allow_redirects=True,
+                            )
+                        else:
+                            resp = requests.post(
+                                url,
+                                json={"qrId": self._qr_id},
+                                headers=headers,
+                                timeout=10,
+                                allow_redirects=True,
+                            )
 
-                if code == "200":
-                    cams = (data.get("cameraInfoList") or
-                            data.get("list") or
-                            (data.get("data") or {}).get("cameraInfoList") or
-                            (data.get("data") or {}).get("list") or [])
-                    if isinstance(cams, list) and cams:
-                        self._cam_cache = cams
-                        self._cache_ts = time.time()
-                        # Store share token if returned
-                        self._share_token = (data.get("shareToken") or
-                                             (data.get("data") or {}).get("shareToken") or "")
-                        return self._cam_cache
+                        if resp.status_code not in (200, 302):
+                            attempts.append(f"{method} {url} → HTTP {resp.status_code}")
+                            continue
 
-                # Try alternate endpoint
-                resp2 = requests.post(
-                    f"{base}/v3/share/device/group/qrcode/verify",
-                    json={"qrId": self._qr_id},
-                    headers={
-                        "Content-Type": "application/json",
-                        "clientType": "55",
-                        "lang": "en-US",
-                    },
-                    timeout=12,
-                )
-                data2 = resp2.json()
-                code2 = str(data2.get("code", ""))
-                if code2 == "200":
-                    cams = (data2.get("cameraInfoList") or
-                            (data2.get("data") or {}).get("cameraInfoList") or
-                            (data2.get("data") or {}).get("list") or [])
-                    if isinstance(cams, list):
-                        self._cam_cache = cams
-                        self._cache_ts = time.time()
-                        self._share_token = (
-                            data2.get("shareToken") or
-                            (data2.get("data") or {}).get("shareToken") or ""
-                        )
-                        return self._cam_cache
+                        try:
+                            data = resp.json()
+                        except Exception:
+                            attempts.append(f"{method} {url} → non-JSON response")
+                            continue
 
-                last_err = f"API code {code}: {data.get('msg', '')}"
+                        code = str(data.get("code", ""))
+                        if code == "200":
+                            cams = (
+                                data.get("cameraInfoList") or
+                                data.get("list") or
+                                (data.get("data") or {}).get("cameraInfoList") or
+                                (data.get("data") or {}).get("list") or []
+                            )
+                            if isinstance(cams, list):
+                                self._cam_cache = cams
+                                self._cache_ts = time.time()
+                                self._share_token = (
+                                    data.get("shareToken") or
+                                    (data.get("data") or {}).get("shareToken") or ""
+                                )
+                                return self._cam_cache
 
-            except Exception as exc:
-                last_err = str(exc)
-                continue
+                        attempts.append(f"{method} {url} → code={code} msg={data.get('msg','')}")
+                    except Exception as exc:
+                        attempts.append(f"{method} {url} → {type(exc).__name__}: {exc}")
 
-        raise RuntimeError(f"Could not resolve share QR: {last_err}")
+        raise RuntimeError(
+            "Could not resolve Guard Vision share. Attempts:\n" + "\n".join(attempts[-6:])
+        )
 
     def _fetch_snapshot(self, cam: dict) -> bytes | None:
         index_code = (cam.get("cameraIndexCode") or

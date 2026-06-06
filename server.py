@@ -195,6 +195,36 @@ async def api_gv_cameras():
     return JSONResponse(await _dispatch("gv_list_cameras", {}))
 
 
+@app.get("/api/guard-vision/debug")
+async def api_gv_debug():
+    """Try every known Hikvision share API path and show raw responses."""
+    import httpx
+    qr_id = cfg.get("guard_vision_share", {}).get("qr_id", "")
+    bases = ["https://api.hik-connect.com", "https://apiisa.hik-connect.com"]
+    paths = [
+        "/v3/share/device/group/cameras",
+        "/v3/share/devicegroup/cameras",
+        "/v3/share/cameras",
+        "/v3/userdevices/v1/share/cameras",
+    ]
+    results = []
+    async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+        for base in bases:
+            for path in paths:
+                url = f"{base}{path}"
+                try:
+                    r = await client.get(url, params={"qrId": qr_id},
+                                         headers={"clientType": "55", "lang": "en-US"})
+                    try:
+                        body = r.json()
+                    except Exception:
+                        body = r.text[:200]
+                    results.append({"url": url, "status": r.status_code, "body": body})
+                except Exception as exc:
+                    results.append({"url": url, "error": str(exc)})
+    return JSONResponse({"qr_id": qr_id, "results": results})
+
+
 @app.get("/api/guard-vision/test")
 async def api_gv_test():
     """Test which Hikvision API server is reachable from this machine."""

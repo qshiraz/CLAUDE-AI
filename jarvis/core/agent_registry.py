@@ -44,6 +44,7 @@ class AgentRegistry:
         from jarvis.agents.education_agent import EducationAgent
         from jarvis.agents.camera_agent import CameraAgent
         from jarvis.agents.guard_vision_agent import GuardVisionAgent
+        from jarvis.agents.hik_connect_agent import HikConnectAgent
 
         builtin_map = {
             "weather": WeatherAgent,
@@ -55,6 +56,7 @@ class AgentRegistry:
             "education": EducationAgent,
             "camera": CameraAgent,
             "guard_vision": GuardVisionAgent,
+            "hik_connect": HikConnectAgent,
         }
 
         for key, cls in builtin_map.items():

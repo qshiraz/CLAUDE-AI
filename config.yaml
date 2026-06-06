@@ -68,12 +68,17 @@ education:
   enabled: true
 
 # ── Guard Vision (Hikvision cloud) ──────────────────────────
-# Get App Key + App Secret from: open.hikvision.com (free developer account)
 guard_vision:
   enabled: true
-  app_key: "YOUR_HIKVISION_APP_KEY"
-  app_secret: "YOUR_HIKVISION_APP_SECRET"
-  account: "your_guard_vision_username"
+  app_key: ""
+  app_secret: ""
+
+# ── Hik-Connect direct login (uses Guard Vision app credentials) ─────────────
+# Use your normal Guard Vision app username and password — no API key needed
+hik_connect:
+  enabled: true
+  username: "your_guardvision_email_or_phone"
+  password: "YOUR_GUARDVISION_PASSWORD"
 
 # ── Camera / Guard Vision ────────────────────────────────────
 # Add your Guard Vision / IP cameras here (or in config.local.yaml)

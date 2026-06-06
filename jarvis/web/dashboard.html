@@ -63,6 +63,7 @@ body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
   box-shadow:0 0 8px var(--green),0 0 16px rgba(0,255,136,0.4);
   animation:pdot 1.6s ease-in-out infinite;margin-right:4px;}
 @keyframes pdot{0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 8px var(--green),0 0 16px rgba(0,255,136,0.4);}50%{opacity:.5;transform:scale(.65);box-shadow:0 0 4px var(--green);}}
+@keyframes rPulse{0%,100%{box-shadow:0 0 6px #cc00ff,0 0 16px rgba(204,0,255,0.6);background:rgba(123,47,255,0.4);}50%{box-shadow:0 0 14px #cc00ff,0 0 30px rgba(204,0,255,0.9);background:rgba(123,47,255,0.7);}}
 
 /* ═══ MAIN 3-COL ════════════════════════════════════════ */
 .main{flex:1;display:grid;grid-template-columns:200px 1fr 220px;gap:4px;min-height:0;}
@@ -1066,35 +1067,40 @@ function playRadioStation(url, name, favicon) {
   radioAudio.load();
   radioPlaying = false;
   document.getElementById('radio-station-name').textContent = name;
-  document.getElementById('radio-play-btn').textContent = '▶ PLAY';
-  document.getElementById('radio-status').textContent = '◉ READY';
-  document.getElementById('radio-status').style.color = 'var(--c)';
-  // Auto-play — browsers allow this if triggered by user message click
+  const playBtn = document.getElementById('radio-play-btn');
+  const statusEl = document.getElementById('radio-status');
+  statusEl.textContent = '◉ LOADING';
+  statusEl.style.color = 'var(--c)';
+  playBtn.textContent = '▶ PLAY';
+  playBtn.style.animation = 'rPulse 0.8s ease-in-out infinite';
   radioAudio.play().then(() => {
     radioPlaying = true;
-    document.getElementById('radio-play-btn').textContent = '⏸ PAUSE';
-    document.getElementById('radio-status').textContent = '● ON AIR';
-    document.getElementById('radio-status').style.color = '#00ff88';
+    playBtn.textContent = '⏸ PAUSE';
+    playBtn.style.animation = '';
+    statusEl.textContent = '● ON AIR';
+    statusEl.style.color = '#00ff88';
   }).catch(() => {
-    // Autoplay blocked — user must click PLAY button
-    document.getElementById('radio-status').textContent = '▶ CLICK PLAY';
+    playBtn.style.animation = 'rPulse 0.8s ease-in-out infinite';
+    statusEl.textContent = '▶ CLICK PLAY';
+    statusEl.style.color = '#ffea00';
   });
 }
 
 function toggleRadio() {
   if (!radioAudio.src || radioAudio.src === window.location.href) return;
+  const btn = document.getElementById('radio-play-btn');
+  const st  = document.getElementById('radio-status');
   if (radioPlaying) {
     radioAudio.pause();
     radioPlaying = false;
-    document.getElementById('radio-play-btn').textContent = '▶ PLAY';
-    document.getElementById('radio-status').textContent = '◉ PAUSED';
-    document.getElementById('radio-status').style.color = 'rgba(123,47,255,0.6)';
+    btn.textContent = '▶ PLAY'; btn.style.animation = '';
+    st.textContent = '◉ PAUSED'; st.style.color = 'rgba(204,0,255,0.6)';
   } else {
-    radioAudio.play();
-    radioPlaying = true;
-    document.getElementById('radio-play-btn').textContent = '⏸ PAUSE';
-    document.getElementById('radio-status').textContent = '● ON AIR';
-    document.getElementById('radio-status').style.color = '#00ff88';
+    radioAudio.play().then(()=>{
+      radioPlaying = true;
+      btn.textContent = '⏸ PAUSE'; btn.style.animation = '';
+      st.textContent = '● ON AIR'; st.style.color = '#00ff88';
+    });
   }
 }
 

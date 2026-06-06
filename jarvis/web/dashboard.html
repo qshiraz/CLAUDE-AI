@@ -252,12 +252,19 @@ canvas.graph{width:100%;height:60px;display:block;}
       <div id="traffic-mini"><div class="loading">LOADING...</div></div>
     </div>
 
-    <div class="pn" style="flex:1.2">
-      <div class="pn-title">◈ GUARD VISION</div>
-      <div id="cam-panel">
-        <div class="loading">SCANNING...</div>
+    <div class="pn" style="flex:2;overflow:hidden;">
+      <div class="pn-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>◈ LIVE CAMERAS</span>
+        <span id="cam-status" style="font-size:8px;color:var(--dim);">STANDBY</span>
       </div>
-      <div id="cam-alerts" style="margin-top:4px;"></div>
+      <div id="cam-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:3px;"></div>
+      <div id="cam-offline" style="font-size:9px;color:var(--dim);display:none;">
+        Add DVR credentials to config.local.yaml to enable cameras.
+      </div>
+      <button class="sbtn" id="cam-load-btn" onclick="loadCameras()"
+        style="margin-top:4px;font-size:8px;letter-spacing:1px;width:100%;display:none;">
+        ◈ LOAD CAMERAS
+      </button>
     </div>
 
   </div>
@@ -815,8 +822,75 @@ async function fetchStatus(){
 function askJarvis(q){document.getElementById('cinput').value=q;sendMsg();}
 
 // ═══════════════════════════════════════════════════════════
-// GUARD VISION — CAMERAS
+// LIVE CAMERAS — Direct DVR feed
 // ═══════════════════════════════════════════════════════════
+let camerasLoaded = false;
+
+async function loadCameras(){
+  const grid = document.getElementById('cam-grid');
+  const status = document.getElementById('cam-status');
+  status.textContent = 'LOADING...';
+  status.style.color = 'var(--c)';
+  grid.innerHTML = '';
+
+  // Try to get camera list to know how many channels
+  try {
+    const d = await fetch('/api/cameras').then(r=>r.json());
+    const channels = (d.channels || []);
+    const total = channels.length || 4;
+
+    if (d.error || total === 0) {
+      document.getElementById('cam-offline').style.display = 'block';
+      document.getElementById('cam-load-btn').style.display = 'block';
+      status.textContent = 'NOT CONFIGURED';
+      status.style.color = 'var(--red)';
+      return;
+    }
+
+    document.getElementById('cam-offline').style.display = 'none';
+    document.getElementById('cam-load-btn').style.display = 'none';
+
+    // Create image tiles for each channel
+    channels.forEach(cam => {
+      const ch = cam.channel;
+      const online = (cam.status||'').includes('ONLINE');
+      const tile = document.createElement('div');
+      tile.style.cssText = 'position:relative;background:#000;cursor:pointer;';
+      tile.title = `Channel ${ch} — click to ask Jarvis`;
+      tile.onclick = () => askJarvis(`Analyze channel ${ch} of my cameras and tell me what you see`);
+
+      const img = document.createElement('img');
+      img.style.cssText = 'width:100%;height:60px;object-fit:cover;display:block;';
+      img.src = `/api/cameras/snapshot/${ch}?t=${Date.now()}`;
+      img.onerror = () => { img.style.display='none'; lbl.style.color='var(--red)'; lbl.textContent=`CH${ch} OFFLINE`; };
+
+      const lbl = document.createElement('div');
+      lbl.style.cssText = 'position:absolute;bottom:0;left:0;right:0;font-size:7px;letter-spacing:1px;color:var(--white);background:rgba(0,0,0,0.6);padding:1px 3px;';
+      lbl.textContent = `CH${ch} · ${online ? 'LIVE' : 'OFFLINE'}`;
+
+      tile.appendChild(img); tile.appendChild(lbl);
+      grid.appendChild(tile);
+    });
+
+    status.textContent = `${total} CHANNELS`;
+    status.style.color = 'var(--green)';
+    camerasLoaded = true;
+
+    // Auto-refresh snapshots every 10 seconds
+    setInterval(() => {
+      grid.querySelectorAll('img').forEach((img, i) => {
+        const ch = (channels[i]||{}).channel || (i+1);
+        img.src = `/api/cameras/snapshot/${ch}?t=${Date.now()}`;
+      });
+    }, 10000);
+
+  } catch(e) {
+    status.textContent = 'ERROR';
+    status.style.color = 'var(--red)';
+    document.getElementById('cam-load-btn').style.display = 'block';
+  }
+}
+
 async function fetchCameras(){
   try{
     const d=await fetch('/api/cameras').then(r=>r.json());
@@ -904,11 +978,12 @@ async function fetchStudents(){
 // INIT
 // ═══════════════════════════════════════════════════════════
 fetchStatus(); fetchWeather(); fetchNews(); fetchTraffic(); fetchFlights(); fetchEmail();
-fetchCameras(); fetchMemory(); fetchStudents();
+fetchMemory(); fetchStudents();
+loadCameras();
 setInterval(fetchWeather,60000); setInterval(fetchTraffic,60000);
 setInterval(fetchNews,300000); setInterval(fetchFlights,90000);
 setInterval(fetchEmail,120000);
-setInterval(fetchCameras,30000); setInterval(fetchMemory,60000); setInterval(fetchStudents,120000);
+setInterval(fetchMemory,60000); setInterval(fetchStudents,120000);
 </script>
 </body>
 </html>

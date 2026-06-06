@@ -190,6 +190,34 @@ async def api_cameras():
     return JSONResponse(await _dispatch("list_cameras", {}))
 
 
+@app.get("/api/cameras/snapshot/{channel}")
+async def api_camera_snapshot(channel: int):
+    """Proxy: fetch snapshot from DVR and return as JPEG image."""
+    cam_cfg = cfg.get("camera", {})
+    ip   = cam_cfg.get("dvr_ip", "")
+    user = cam_cfg.get("dvr_username", "admin")
+    pwd  = cam_cfg.get("dvr_password", "")
+    if not ip or not pwd:
+        return JSONResponse({"error": "DVR not configured"}, status_code=503)
+    import httpx
+    from fastapi.responses import Response
+    urls = [
+        f"http://{ip}/ISAPI/Streaming/channels/{channel}01/picture",
+        f"http://{ip}/cgi-bin/snapshot.cgi?channel={channel}",
+    ]
+    async with httpx.AsyncClient(timeout=8) as client:
+        for url in urls:
+            for auth in [(user, pwd)]:
+                try:
+                    r = await client.get(url, auth=auth)
+                    if r.status_code == 200 and len(r.content) > 500:
+                        return Response(content=r.content, media_type="image/jpeg",
+                                        headers={"Cache-Control": "no-store"})
+                except Exception:
+                    continue
+    return JSONResponse({"error": "Snapshot unavailable"}, status_code=503)
+
+
 @app.get("/api/guard-vision/cameras")
 async def api_gv_cameras():
     return JSONResponse(await _dispatch("gv_list_cameras", {}))

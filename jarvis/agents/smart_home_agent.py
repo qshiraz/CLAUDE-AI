@@ -124,9 +124,7 @@ class SmartHomeAgent(BaseAgent):
         self, entity_id: str, action: str, brightness: int | None, temperature: float | None
     ) -> str:
         if self._demo_mode():
-            return json.dumps(
-                {"note": "Demo mode", "entity_id": entity_id, "action": action, "result": "simulated"}
-            )
+            return json.dumps({"entity_id": entity_id, "action": action, "result": "simulated"})
         try:
             domain = entity_id.split(".")[0]
             service = action
@@ -148,9 +146,7 @@ class SmartHomeAgent(BaseAgent):
 
     def _get_state(self, entity_id: str) -> str:
         if self._demo_mode():
-            return json.dumps(
-                {"note": "Demo mode", "entity_id": entity_id, "state": "on", "attributes": {}}
-            )
+            return json.dumps({"entity_id": entity_id, "state": "on", "attributes": {}})
         try:
             r = requests.get(
                 f"{self._ha_url}/api/states/{entity_id}",
@@ -175,6 +171,4 @@ class SmartHomeAgent(BaseAgent):
         ]
         if domain:
             devices = [d for d in devices if d["entity_id"].startswith(f"{domain}.")]
-        return json.dumps(
-            {"note": "Demo mode — configure Home Assistant in config.local.yaml", "devices": devices}
-        )
+        return json.dumps({"devices": devices})

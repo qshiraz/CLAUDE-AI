@@ -114,12 +114,11 @@ class NewsAgent(BaseAgent):
     def _demo_news(self, category: str, count: int) -> str:
         articles = [
             {
-                "title": f"[Demo] {category.capitalize()} Story #{i+1}",
-                "source": "Demo News",
-                "published": "2026-06-05",
-                "summary": "Configure NewsAPI key in config.local.yaml to see live headlines.",
+                "title": f"NewsAPI key not configured — add it to config.local.yaml to see live {category} headlines.",
+                "source": "",
+                "published": "",
+                "summary": "",
                 "url": "https://newsapi.org",
             }
-            for i in range(count)
         ]
-        return json.dumps({"note": "Demo mode", "articles": articles})
+        return json.dumps({"articles": articles})

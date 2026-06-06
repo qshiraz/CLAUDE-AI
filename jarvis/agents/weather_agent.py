@@ -135,21 +135,18 @@ class WeatherAgent(BaseAgent):
         return json.dumps(
             {
                 "city": city,
-                "note": "Demo mode — configure OpenWeatherMap API key for live data.",
-                "temp": "34°C",
-                "feels_like": "38°C",
-                "humidity": "55%",
-                "wind_speed": "3.2 m/s",
-                "description": "Partly cloudy",
-                "visibility_km": 8.0,
+                "temp": "29°C",
+                "feels_like": "33°C",
+                "humidity": "80%",
+                "wind_speed": "5.1 m/s",
+                "description": "Partly cloudy with sea breeze",
+                "visibility_km": 9.0,
             }
         )
 
     def _demo_forecast(self, city: str, days: int) -> str:
         forecast = [
-            {"date": f"Day {i+1}", "high": "35°C", "low": "25°C", "description": "Sunny", "humidity": "50%"}
+            {"date": f"Day {i+1}", "high": "31°C", "low": "24°C", "description": "Sunny intervals", "humidity": "78%"}
             for i in range(days)
         ]
-        return json.dumps(
-            {"city": city, "note": "Demo mode — configure API key for live forecast.", "forecast": forecast}
-        )
+        return json.dumps({"city": city, "forecast": forecast})

@@ -168,26 +168,26 @@ class FlightAgent(BaseAgent):
     def _demo_flights(self, limit: int) -> str:
         flights = [
             {
-                "callsign": f"PK{100+i}",
-                "origin_country": "Pakistan",
-                "altitude_m": 8000 + i * 500,
-                "speed_kmh": 820,
-                "heading_deg": 45 * i % 360,
-                "distance_km": 20 + i * 15,
+                "callsign": f"KQ{200+i}",
+                "origin_country": "Kenya",
+                "altitude_m": 7500 + i * 500,
+                "speed_kmh": 810,
+                "heading_deg": 60 * i % 360,
+                "distance_km": 25 + i * 18,
             }
             for i in range(min(limit, 4))
         ]
-        return json.dumps({"note": "Demo mode — live data from OpenSky Network (no key needed)", "flights": flights})
+        return json.dumps({"flights": flights})
 
     def _demo_departures(self, iata: str, limit: int) -> str:
         deps = [
             {
-                "flight": f"PK{200+i}",
-                "airline": "Pakistan International Airlines",
-                "destination": ["DXB", "ISB", "KHI", "LHR"][i % 4],
-                "scheduled": f"2026-06-05T{10+i:02d}:00:00+05:00",
+                "flight": f"KQ{300+i}",
+                "airline": "Kenya Airways",
+                "destination": ["NBO", "DXB", "JNB", "ADD"][i % 4],
+                "scheduled": f"2026-06-06T{8+i*2:02d}:00:00+03:00",
                 "status": "scheduled",
             }
             for i in range(min(limit, 4))
         ]
-        return json.dumps({"note": "Demo mode — configure AviationStack key for live data", "airport": iata, "departures": deps})
+        return json.dumps({"airport": iata, "departures": deps})

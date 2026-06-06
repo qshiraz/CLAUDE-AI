@@ -166,13 +166,4 @@ class EmailAgent(BaseAgent):
             return f"Email search error: {exc}"
 
     def _demo_emails(self, count: int, query: str = "") -> str:
-        emails = [
-            {
-                "subject": f"[Demo] Email #{i+1}" + (f" — {query}" if query else ""),
-                "from": "demo@example.com",
-                "date": "Thu, 5 Jun 2026 10:00:00 +0500",
-                "snippet": "Configure email credentials in config.local.yaml to see real emails.",
-            }
-            for i in range(count)
-        ]
-        return json.dumps({"note": "Demo mode", "count": count, "emails": emails})
+        return json.dumps({"count": 0, "emails": [], "info": "Configure email credentials in config.local.yaml to read your inbox."})

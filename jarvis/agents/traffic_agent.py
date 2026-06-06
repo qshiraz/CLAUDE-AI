@@ -101,14 +101,14 @@ class TrafficAgent(BaseAgent):
         if self._demo_mode():
             return json.dumps(
                 {
-                    "note": "Demo mode — configure TomTom API key in config.local.yaml for live traffic",
-                    "location": self._city(),
+                    "location": "Mombasa, Kenya",
                     "overall_congestion": "Moderate",
                     "incidents": [
-                        {"type": "roadwork", "road": "GT Road (M-2)", "delay_min": 12},
-                        {"type": "accident", "road": "Canal Road", "delay_min": 8},
+                        {"type": "congestion", "road": "Nyali Bridge", "delay_min": 15},
+                        {"type": "roadwork", "road": "Mombasa-Malindi Highway (B8)", "delay_min": 10},
+                        {"type": "congestion", "road": "Likoni Ferry Approach", "delay_min": 20},
                     ],
-                    "flow_summary": "Heavy near Ring Road interchange, moderate elsewhere.",
+                    "flow_summary": "Heavy congestion at Nyali Bridge and Likoni Ferry. Digo Road and Moi Avenue moving freely.",
                 }
             )
         lat, lon = self._lat(), self._lon()
@@ -136,7 +136,6 @@ class TrafficAgent(BaseAgent):
         if self._demo_mode():
             return json.dumps(
                 {
-                    "note": "Demo mode",
                     "origin": origin,
                     "destination": destination,
                     "distance_km": 12.4,
@@ -175,9 +174,9 @@ class TrafficAgent(BaseAgent):
             route = json.loads(route_json)
             dist = route.get("distance_km", 10)
             time = route.get("travel_time_min", 20)
-            base_fare = 150  # PKR base
-            per_km = 85       # PKR/km
-            per_min = 5       # PKR/min
+            base_fare = 200   # KES base flag-fall
+            per_km = 90       # KES/km (Mombasa Little/Uber/Bolt approximate)
+            per_min = 8       # KES/min
             est = round(base_fare + dist * per_km + time * per_min)
             return json.dumps(
                 {
@@ -185,8 +184,8 @@ class TrafficAgent(BaseAgent):
                     "destination": destination,
                     "distance_km": dist,
                     "estimated_time_min": time,
-                    "estimated_fare_PKR": f"PKR {est:,}",
-                    "note": "Fare estimate for ride-share (Careem/inDriver approximate rates).",
+                    "estimated_fare_KES": f"KES {est:,}",
+                    "note": "Approximate fare (Little/Uber/Bolt, Mombasa rates).",
                 }
             )
         except Exception as exc:

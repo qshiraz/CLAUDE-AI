@@ -757,12 +757,25 @@ connectWS();
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
+function cleanText(s){
+  return s
+    .replace(/\*\*(.+?)\*\*/g,'$1')   // **bold** → plain
+    .replace(/\*(.+?)\*/g,'$1')        // *italic* → plain
+    .replace(/_{1,2}(.+?)_{1,2}/g,'$1') // _underline_ → plain
+    .replace(/`(.+?)`/g,'$1')          // `code` → plain
+    .replace(/^\s*[-*#|]+\s*/gm,'')    // strip leading -, *, #, |
+    .replace(/\n{3,}/g,'\n\n')         // collapse excess newlines
+    .replace(/[\u{1F300}-\u{1FFFF}]/gu,'') // strip emoji
+    .trim();
+}
+
 function addMsg(role,text){
   const box=document.getElementById('msgs');
   const d=document.createElement('div');
   d.className='msg '+role;
   const who=role==='user'?'YOU »':'SAHIL »';
-  d.innerHTML=`<span class="who">${who}</span> <span class="txt">${esc(text)}</span>`;
+  const cleaned = role==='bot' ? cleanText(text) : text;
+  d.innerHTML=`<span class="who">${who}</span> <span class="txt">${esc(cleaned)}</span>`;
   box.appendChild(d); box.scrollTop=box.scrollHeight;
   return d;
 }
@@ -790,7 +803,7 @@ function sendMsg(){
       if(d.type==='chunk'){
         full+=d.text;
         if(!div)div=addMsg('bot','');
-        div.querySelector('.txt').textContent=full;
+        div.querySelector('.txt').textContent=cleanText(full);
         document.getElementById('msgs').scrollTop=9999;
       }else if(d.type==='action'){
         // Immediate UI action from tool result — no need to wait for done

@@ -35,7 +35,8 @@ async def lifespan(app: FastAPI):
         plugin_dir = ROOT / plugins_cfg.get("directory", "jarvis/plugins")
         registry.load_plugins(plugin_dir)
     orchestrator = JarvisOrchestrator(cfg, registry)
-    print(f"\n  Sahil Dashboard → http://localhost:8080\n")
+    _port = int(os.getenv("PORT", 8080))
+    print(f"\n  Sahil Dashboard → http://localhost:{_port}\n")
     yield
 
 
@@ -483,4 +484,5 @@ if __name__ == "__main__":
     if not os.getenv("ANTHROPIC_API_KEY"):
         print("\n  ERROR: ANTHROPIC_API_KEY not set.\n  Run: set ANTHROPIC_API_KEY=sk-ant-...\n")
         sys.exit(1)
-    uvicorn.run("server:app", host="0.0.0.0", port=8080, reload=False)
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)

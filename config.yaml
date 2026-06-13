@@ -1,9 +1,9 @@
-# Sahil Configuration
+# Kamran Configuration
 # Copy this file to config.local.yaml and fill in your API keys.
 # config.local.yaml is gitignored — never commit real keys.
 
 jarvis:
-  name: "Sahil"
+  name: "Kamran"
   version: "1.0.0"
   user_name: "Boss"
   # Location settings used across weather, traffic, flights

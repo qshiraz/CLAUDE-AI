@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SAHIL OS</title>
+<title>KAMRAN OS</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
 <style>
 :root{
@@ -372,10 +372,10 @@ body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
 <!-- ══ CENTER: Reactor + World Cup + Chat ═════════════════════ -->
 <div class="center-col">
 
-  <!-- SAHIL Core / Reactor -->
+  <!-- KAMRAN Core / Reactor -->
   <div class="pn reactor-pn" id="core-wrap">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid rgba(79,195,247,0.1);">
-      <span style="font-size:10px;letter-spacing:4px;color:var(--c);font-weight:bold;">SAHIL CORE</span>
+      <span style="font-size:10px;letter-spacing:4px;color:var(--c);font-weight:bold;">KAMRAN CORE</span>
       <span id="thinking-ind" style="font-size:9px;letter-spacing:2px;color:var(--dim);">STANDBY</span>
     </div>
 
@@ -549,7 +549,7 @@ body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
     </div>
     <div class="wave"><div class="wave-fill" id="wave-fill"></div></div>
     <div class="msgs" id="msgs">
-      <div class="msg bot"><span class="who">SAHIL »</span> <span class="txt">Good day. All systems online. All agents active. Click 🎤 or double-clap to speak.</span></div>
+      <div class="msg bot"><span class="who">KAMRAN »</span> <span class="txt">Good day. All systems online. All agents active. Click 🎤 or double-clap to speak.</span></div>
     </div>
     <div class="chat-row">
       <input class="cinput" id="cinput" type="text" placeholder="Type command or click 🎤..." autocomplete="off" onkeydown="if(event.key==='Enter')sendMsg()">
@@ -607,7 +607,7 @@ body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
     <div class="pn-title">◈ EDUCATION</div>
     <div id="students-panel"><div class="loading">LOADING...</div></div>
     <button class="sbtn" style="margin-top:4px;font-size:10px;letter-spacing:1px;width:100%;"
-      onclick="askSahil('Show me a summary of all student progress')">VIEW PROGRESS</button>
+      onclick="askKamran('Show me a summary of all student progress')">VIEW PROGRESS</button>
   </div>
 
 </div><!-- /right-col -->
@@ -617,7 +617,7 @@ body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
 <!-- ═══ BOTTOM BAR ═══════════════════════════════════════════ -->
 <div class="bottombar">
   <div>
-    <div class="stark-logo">SAHIL AI</div>
+    <div class="stark-logo">KAMRAN AI</div>
     <div style="font-size:9px;letter-spacing:3px;color:var(--dim);margin-top:1px;">AI COMMAND CENTER — AUTHORIZED ACCESS ONLY</div>
   </div>
   <div class="bottom-stats">
@@ -627,7 +627,7 @@ body::after{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
     <div class="b-stat">TRAFFIC: <span id="b-traffic">--</span></div>
     <div class="b-stat">UPTIME: <span id="b-uptime">00:00:00</span></div>
   </div>
-  <div style="font-size:9px;letter-spacing:2px;color:var(--dim);">v3.0 · SAHIL OS</div>
+  <div style="font-size:9px;letter-spacing:2px;color:var(--dim);">v3.0 · KAMRAN OS</div>
 </div>
 
 </div><!-- /shell -->
@@ -846,7 +846,7 @@ function addMsg(role,text){
   const box=document.getElementById('msgs');
   const d=document.createElement('div');
   d.className='msg '+role;
-  const who=role==='user'?'YOU »':'SAHIL »';
+  const who=role==='user'?'YOU »':'KAMRAN »';
   const cleaned = role==='bot' ? cleanText(text) : text;
   d.innerHTML=`<span class="who">${who}</span> <span class="txt">${esc(cleaned)}</span>`;
   box.appendChild(d); box.scrollTop=box.scrollHeight;
@@ -928,7 +928,7 @@ async function fetchNews(){
     newsItems=(d.articles||[]).map(a=>a.title).filter(Boolean);
     const el=document.getElementById('news-right');
     el.innerHTML=newsItems.slice(0,5).map((t,i)=>
-      `<div class="news-item" onclick="askSahil('Tell me about: ${esc(t.substring(0,60))}')">
+      `<div class="news-item" onclick="askKamran('Tell me about: ${esc(t.substring(0,60))}')">
         <span class="news-num">${i+1}.</span>${esc(t.substring(0,90))}</div>`
     ).join('');
   }catch(e){}
@@ -975,7 +975,7 @@ async function fetchStatus(){
   }catch(e){}
 }
 
-function askSahil(q){document.getElementById('cinput').value=q;sendMsg();}
+function askKamran(q){document.getElementById('cinput').value=q;sendMsg();}
 
 // ═══════════════════════════════════════════════════════════
 // CAMERA LIST & ACTIVE CAMERA VIEW
@@ -1030,7 +1030,7 @@ async function loadCameraList() {
     const d = await fetch('/api/cameras').then(r => r.json());
     const channels = d.channels || d.cameras || [];
     if (!channels.length) {
-      listEl.innerHTML = '<div style="font-size:11px;color:var(--dim);padding:4px 2px;">No cameras configured.<br><span style="color:var(--c);cursor:pointer;" onclick="askSahil(\'How do I add a camera?\')">Ask Sahil →</span></div>';
+      listEl.innerHTML = '<div style="font-size:11px;color:var(--dim);padding:4px 2px;">No cameras configured.<br><span style="color:var(--c);cursor:pointer;" onclick="askKamran(\'How do I add a camera?\')">Ask Kamran →</span></div>';
       statusEl.textContent = 'NONE';
       document.getElementById('b-cameras').textContent = '0 CAMS';
       document.getElementById('cam-live-ind').style.display = 'none';
@@ -1064,9 +1064,9 @@ async function loadCameraList() {
 
 function analyzeCam() {
   if (activeCamChannel) {
-    askSahil(`Analyze camera channel ${activeCamChannel} (${activeCamName}) and describe what you see in detail`);
+    askKamran(`Analyze camera channel ${activeCamChannel} (${activeCamName}) and describe what you see in detail`);
   } else {
-    askSahil('Analyze the current camera feed and tell me what you see');
+    askKamran('Analyze the current camera feed and tell me what you see');
   }
 }
 
@@ -1094,7 +1094,7 @@ async function fetchMemory(){
         </div>`;
       });
     });
-    el.innerHTML=html+`<div style="font-size:10px;color:var(--dim);margin-top:4px;">Total: ${d.total} facts · <span style="cursor:pointer;color:var(--c);" onclick="askSahil('What do you remember about me?')">Ask Sahil →</span></div>`;
+    el.innerHTML=html+`<div style="font-size:10px;color:var(--dim);margin-top:4px;">Total: ${d.total} facts · <span style="cursor:pointer;color:var(--c);" onclick="askKamran('What do you remember about me?')">Ask Kamran →</span></div>`;
   }catch(e){}
 }
 
@@ -1111,7 +1111,7 @@ async function fetchStudents(){
       return;
     }
     el.innerHTML=students.slice(0,4).map(s=>`
-      <div class="ag-row" style="cursor:pointer;" onclick="askSahil('Show progress for student ${esc(s.name)}')">
+      <div class="ag-row" style="cursor:pointer;" onclick="askKamran('Show progress for student ${esc(s.name)}')">
         <div class="ag-dot ok"></div>
         <span class="ag-name">${esc(s.name).toUpperCase()}</span>
         <span class="ag-status">${s.avg_score!==null?s.avg_score+'%':'--'}</span>
@@ -1372,7 +1372,7 @@ setInterval(fetchTuya, 30000);
       <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
     </svg>
     <span>SELECT A CAMERA</span>
-    <span style="font-size:8px;letter-spacing:1px;color:rgba(79,195,247,0.2);">CLICK LIST OR ASK SAHIL</span>
+    <span style="font-size:8px;letter-spacing:1px;color:rgba(79,195,247,0.2);">CLICK LIST OR ASK KAMRAN</span>
   </div>
   <div id="cam-loading">CONNECTING...</div>
 </div>

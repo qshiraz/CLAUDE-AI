@@ -7,7 +7,7 @@ import requests
 
 from jarvis.agents.base_agent import BaseAgent
 
-_HEADERS = {"User-Agent": "SahilAI/1.0"}
+_HEADERS = {"User-Agent": "KamranAI/1.0"}
 _BASE = "https://de1.api.radio-browser.info/json"
 
 
@@ -48,7 +48,7 @@ class RadioAgent(BaseAgent):
             {
                 "name": "play_radio",
                 "description": (
-                    "Get the stream URL and metadata for a radio station so Sahil can play it. "
+                    "Get the stream URL and metadata for a radio station so Kamran can play it. "
                     "Provide either the station name or its Radio Browser UUID."
                 ),
                 "input_schema": {

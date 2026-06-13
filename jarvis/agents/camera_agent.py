@@ -24,7 +24,7 @@ from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
 from jarvis.agents.base_agent import BaseAgent
 
-_NAMES_FILE = Path.home() / ".sahil_camera_names.json"
+_NAMES_FILE = Path.home() / ".kamran_camera_names.json"
 
 def _load_saved_names() -> dict[int, str]:
     try:

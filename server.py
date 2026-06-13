@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
         registry.load_plugins(plugin_dir)
     orchestrator = JarvisOrchestrator(cfg, registry)
     _port = int(os.getenv("PORT", 8080))
-    print(f"\n  Sahil Dashboard → http://localhost:{_port}\n")
+    print(f"\n  Kamran Dashboard → http://localhost:{_port}\n")
     yield
 
 
@@ -412,7 +412,7 @@ async def api_radio_stream(url: str):
             try:
                 async with client.stream(
                     "GET", url,
-                    headers={"User-Agent": "Mozilla/5.0 SahilAI/1.0", "Icy-MetaData": "1"}
+                    headers={"User-Agent": "Mozilla/5.0 KamranAI/1.0", "Icy-MetaData": "1"}
                 ) as resp:
                     ct = resp.headers.get("content-type", "")
                     if ct:

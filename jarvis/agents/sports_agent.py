@@ -9,7 +9,7 @@ import requests
 from jarvis.agents.base_agent import BaseAgent
 
 _ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world"
-_HEADERS = {"User-Agent": "SahilAI/1.0"}
+_HEADERS = {"User-Agent": "KamranAI/1.0"}
 
 
 def _parse_date(iso_str: str) -> str:

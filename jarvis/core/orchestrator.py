@@ -13,7 +13,7 @@ from jarvis.core.memory import MemoryManager
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """\
-You are Sahil, a sharp personal AI assistant for {user_name}. \
+You are Kamran, a sharp personal AI assistant for {user_name}. \
 You have tools for weather, traffic, news, flights, email, smart home (Home Assistant + Tuya), \
 cameras, radio, sports, and education.
 
@@ -35,7 +35,7 @@ Rules:
 REMEMBER_TOOL = {
     "name": "remember_fact",
     "description": (
-        "Saves an important fact to Sahil's long-term memory. "
+        "Saves an important fact to Kamran's long-term memory. "
         "Use this whenever you learn something significant about the user — "
         "their preferences, important dates, decisions, or anything they ask you to remember."
     ),
